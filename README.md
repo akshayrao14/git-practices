@@ -1,3 +1,6 @@
+# git-practices
+The latest version of best practices for git
+
 Branching
 
 We use different "levels" of branches based on stability or extent of collaboration with the team.
