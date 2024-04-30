@@ -63,6 +63,8 @@ sleep 2
 echo "..."
 sleep 2
 git reset --hard && git clean -fd
+git fetch origin
+git reset --hard origin/development
 echo ""
 
 echo "Pulling latest $MERGE_INTO_BRANCH... from remote."
