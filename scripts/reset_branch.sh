@@ -13,14 +13,25 @@ while [[ "$#" -gt 0 ]]
     shift
 done
 
+source_branch="${source_branch:-pre-release}"
 
+if [[ ("$dest_branch" == "pre-release") || ("$dest_branch" == "main") ]]
+then
+  echo "Not allowed to reset '$dest_branch'"
+  exit 1
+fi
 
-printf "This will reset the "$dest_branch" branch using the "$source_branch" branch..."
+echo "This will reset the '$dest_branch' branch using the '$source_branch' branch..."
+
+sleep 1
+echo ""
+echo "Press Ctrl+C within 5s to cancel..."
 
 sleep 5
 
-git checkout $source_branch
-git pull origin $source_branch
-git checkout $dest_branch
-git reset --hard $source_branch
-git push -f origin $dest_branch
+echo ""
+git checkout "$source_branch"
+git pull origin "$source_branch"
+git checkout "$dest_branch"
+git reset --hard "$source_branch"
+git push -f origin "$dest_branch"
