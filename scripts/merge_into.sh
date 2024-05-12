@@ -51,7 +51,7 @@ suppress_git_fetch=$(git fetch origin 2>&1)
 export LOCAL_CUR_BR=$CUR_BRANCH
 export REMOTE_CUR_BR=origin/$CUR_BRANCH
 
-if [ "$(git rev-parse "$LOCAL_CUR_BR")" = "$(git rev-parse "$REMOTE_CUR_BR")" ]
+if [ "$(git rev-parse "$LOCAL_CUR_BR")" == "$(git rev-parse "$REMOTE_CUR_BR")" ]
 then
     echo ""
 else
