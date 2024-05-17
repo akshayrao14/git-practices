@@ -122,7 +122,12 @@ else
   echo ""
   echo "Please resolve them, add a new commit and then push it to origin."
   echo ""
-  echo "git commit -m \"$AUTO_COMMIT_MSG\"             <<<<----copy this for later"
+  echo -e "↘ ↘ ↘ ↘ ↓ ↓ ↓ ↓ Copy the command below ↓ ↓ ↓ ↓ ↙ ↙ ↙ ↙"
+  echo ""
+  echo "git commit -m \"$AUTO_COMMIT_MSG\""
+  echo ""
+  echo -e " ↗ ↗ ↗ ↗ ~ ~ ~ ~ ~ ~ ~ ~ ↑ ↑ ↑ ↑ ~ ~ ~ ~ ~ ~ ~ ↖ ↖ ↖ ↖"
+  echo ""
   echo "and then, run"
   echo "git push origin $MERGE_INTO_BRANCH" 
 fi
