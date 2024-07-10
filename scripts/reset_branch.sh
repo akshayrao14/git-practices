@@ -8,7 +8,7 @@ while [[ "$#" -gt 0 ]]
   do
     case $1 in
       -f|--from) source_branch="$2"; shift;;
-      -r|--to) dest_branch="$2"; shift;;
+      -t|--to) dest_branch="$2"; shift;;
     esac
     shift
 done

@@ -1,3 +1,5 @@
+#!/bin/bash
+source bash_formatting.sh
 
 # Place this in the folder which contains all your repos. Do not place it in the
 # root of any particular repo.
@@ -36,98 +38,82 @@ case $MERGE_INTO_BRANCH in
     ;;
 
   *)
-    # echo "Invalid target branch: '$MERGE_INTO_BRANCH'"
-    # echo "Only development and demo allowed"
-    # echo "Try again."
-    # exit
-    # ;;
+    echo -e "${LIGHT_RED}Invalid target branch: '$MERGE_INTO_BRANCH'"; RESET_FORMATTING
+    echo "Only development and demo allowed"
+    echo "Try again."
+    exit
+    ;;
 esac
 
 # REPO_NAME=$(basename $(git rev-parse --show-toplevel))
 CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-suppress_git_fetch=$(git fetch origin 2>&1)
+git fetch origin 2>&1
 
-export LOCAL_CUR_BR=$CUR_BRANCH
-export REMOTE_CUR_BR=origin/$CUR_BRANCH
+export LOCAL_CUR_BR="$CUR_BRANCH"
+export REMOTE_CUR_BR="origin/$CUR_BRANCH"
 
 if [ "$(git rev-parse "$LOCAL_CUR_BR")" == "$(git rev-parse "$REMOTE_CUR_BR")" ]
 then
     echo ""
 else
     echo ""
-    echo "$CUR_BRANCH is NOT in sync with its remote branch."
-    echo -e "Run\tgit pull origin $CUR_BRANCH"
-    echo -e "-or-\tcommit/stash/discard the local changes..."
-    echo -e "-or-\tgit push origin $CUR_BRANCH"
+    echo -e "${LIGHT_RED}Your local \"$CUR_BRANCH\" branch is NOT in sync with its remote origin."; RESET_FORMATTING
+    echo -e "\tRun\tgit pull origin $CUR_BRANCH"
+    echo -e "\t-or-\tcommit/stash/discard the local changes..."
+    echo -e "\t-or-\tgit push origin $CUR_BRANCH"
     echo "and rerun merge_into."
     exit 1
 fi
 
 echo "Starting the steps to send commits from $CUR_BRANCH to $MERGE_INTO_BRANCH..."
-# sleep 1
-# echo "                                          Press Ctrl + C to cancel..."
-# sleep 5
 
-echo "Switching to $MERGE_INTO_BRANCH..."
-# echo "                                          Press Ctrl + C to cancel..."
-# sleep 2
-suppress_git_checkout=$(git checkout "$MERGE_INTO_BRANCH" 2>&1)
-echo ""
-# sleep 2
+echo -e "${LOW_INTENSITY_TEXT}Switching to $MERGE_INTO_BRANCH..."
+git checkout "$MERGE_INTO_BRANCH" 2>&1
 
-echo "Discarding all unpushed changes of your local $MERGE_INTO_BRANCH branch."
-# echo "                                          Press Ctrl + C to cancel..."
-# sleep 2
-# echo "..."
-# sleep 2
-suppress_git_reset=$(git reset --hard "origin/$MERGE_INTO_BRANCH" 2>&1 && git clean -fd 2>&1)
-echo ""
+echo -e "${LOW_INTENSITY_TEXT}Discarding all unpushed changes of your local $MERGE_INTO_BRANCH branch."
+git reset --hard "origin/$MERGE_INTO_BRANCH" 2>&1 && git clean -fd 2>&1
 
-echo "Pulling latest $MERGE_INTO_BRANCH... from remote."
-# echo "                                          Press Ctrl + C to cancel..."
-# sleep 2
-# echo "..."
-# sleep 2
-suppress_git_pull_target=$(git pull origin "$MERGE_INTO_BRANCH" 2>&1)
-echo ""
+echo -e "${LOW_INTENSITY_TEXT}Pulling latest $MERGE_INTO_BRANCH... from remote."
+git pull origin "$MERGE_INTO_BRANCH" 2>&1
 
-echo "Running GIT MERGE $CUR_BRANCH --SQUASH"
-# sleep 2
-# echo "                                          Press Ctrl + C to cancel..."
-# sleep 2
-# echo "..."
+echo -e "${LOW_INTENSITY_TEXT}Running GIT MERGE $CUR_BRANCH --SQUASH"
 suppress_git_merge_output=$(git merge "$CUR_BRANCH" --squash 2>&1)
-# sleep 2
-echo "$suppress_git_merge_output"
 
-git status
+echo -e "${LOW_INTENSITY_TEXT}$suppress_git_merge_output"
 
-echo ""
 export AUTO_COMMIT_MSG="Merge branch '$CUR_BRANCH' into $MERGE_INTO_BRANCH via merge_into.sh"
 
 if [[ "$suppress_git_merge_output" == *"Automatic merge went well"* ]]; then
 
-  echo "~ ~ ~ ~ ~ ~ ~ ~ No conflicts! ~ ~ ~ ~ ~ ~ ~ ~"
-  echo "Auto-committing!"
-  git commit -m "$AUTO_COMMIT_MSG"
-  
-  # echo "Auto-commit done but not pushing automatically..."
   echo ""
-  echo "PUSHING IT!!!"
-
-  git push origin "$MERGE_INTO_BRANCH"
-else
-  echo "~ ~ ~ ~ ~ ~ ~ ~ Conflicts OMG ~ ~ ~ ~ ~ ~ ~ ~ "
-  echo ""
-  echo "Please resolve them, add a new commit and then push it to origin."
-  echo ""
-  echo -e "↘ ↘ ↘ ↘ ↓ ↓ ↓ ↓ Copy the command below ↓ ↓ ↓ ↓ ↙ ↙ ↙ ↙"
-  echo ""
-  echo "git commit -m \"$AUTO_COMMIT_MSG\""
-  echo ""
-  echo -e " ↗ ↗ ↗ ↗ ~ ~ ~ ~ ~ ~ ~ ~ ↑ ↑ ↑ ↑ ~ ~ ~ ~ ~ ~ ~ ↖ ↖ ↖ ↖"
-  echo ""
-  echo "and then, run"
-  echo "git push origin $MERGE_INTO_BRANCH" 
+  echo -e "${LIGHT_GREEN}~ ~ ~ ~ ~ ~ ~ ~ No conflicts! ~ ~ ~ ~ ~ ~ ~ ~"; RESET_FORMATTING
+  echo -e "${LIGHT_GREEN}Auto-committing and auto-pushing!"; RESET_FORMATTING
+  (
+    git commit -m "AutoMerge: $AUTO_COMMIT_MSG" && 
+    git push origin "$MERGE_INTO_BRANCH" && 
+    git checkout "$CUR_BRANCH"
+  ) || echo -e "${LIGHT_RED}\nAutoMerge failed during commit/push. Please check why..."
+  RESET_FORMATTING
+  exit 0
 fi
+
+echo "$suppress_git_merge_output"
+git status
+
+echo -e "${LIGHT_RED}~ ~ ~ ~ ~ ~ ~ ~ Conflicts OMG ~ ~ ~ ~ ~ ~ ~ ~ "; RESET_FORMATTING
+echo ""
+echo "Please resolve them, add a new commit and then push it to origin."
+echo ""
+echo -e "↘ ↘ ↘ ↘ ↓ ↓ ↓ ↓ Copy the command below ↓ ↓ ↓ ↓ ↙ ↙ ↙ ↙"
+echo ""
+echo "git commit -m \"$AUTO_COMMIT_MSG\""
+echo ""
+echo -e " ↗ ↗ ↗ ↗ ~ ~ ~ ~ ~ ~ ~ ~ ↑ ↑ ↑ ↑ ~ ~ ~ ~ ~ ~ ~ ↖ ↖ ↖ ↖"
+echo ""
+echo "and then, run"
+echo "git push origin $MERGE_INTO_BRANCH" 
+
+# Save state of this merge to .git/merge_into.state
+echo "Conflicts: $AUTO_COMMIT_MSG" > .git/merge_into.state
+echo "ManualMerge: $AUTO_COMMIT_MSG" > .git/merge_into.commit-msg
