@@ -48,6 +48,18 @@ esac
 # REPO_NAME=$(basename $(git rev-parse --show-toplevel))
 CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
+
+case $CUR_BRANCH in
+  development|demo)
+    echo -e "${LIGHT_RED}Not allowed to merge '$CUR_BRANCH' into anything."; RESET_FORMATTING
+    exit
+    ;;
+  "$MERGE_INTO_BRANCH")
+    echo -e "${LIGHT_RED}Source and destination branches must be different."; RESET_FORMATTING
+    exit
+    ;;
+esac
+
 git fetch origin 2>&1
 
 export LOCAL_CUR_BR="$CUR_BRANCH"
