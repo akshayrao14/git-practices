@@ -32,6 +32,16 @@ sleep 5
 echo ""
 git checkout "$source_branch"
 git pull origin "$source_branch"
+git branch -D "$dest_branch"
 git checkout "$dest_branch"
+commits_since_last_reset=$(git log --boundary --right-only --oneline pre-release...HEAD | grep -o -P '(?<=branch).*(?= into)' | uniq -u 2>&1)
 git reset --hard "$source_branch"
+
+touch delete.me
+echo "$(date)" > delete.me
+git add delete.me
+
+git commit -m "Resetting $dest_branch from $source_branch via reset_branch.sh. Commits from these branches could be lost:
+> ${commits_since_last_reset:-none}" -n
+
 git push -f origin "$dest_branch"
