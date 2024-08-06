@@ -92,7 +92,22 @@ git pull origin "$MERGE_INTO_BRANCH" 2>&1
 echo -e "${LOW_INTENSITY_TEXT}Running GIT MERGE $CUR_BRANCH --SQUASH"
 suppress_git_merge_output=$(git merge "$CUR_BRANCH" --squash 2>&1)
 
-echo -e "${LOW_INTENSITY_TEXT}$suppress_git_merge_output"
+IFS=$'\n'; splitLines=($suppress_git_merge_output); unset IFS;
+for curLine in "${splitLines[@]}"; do
+
+  if [[ "$curLine" == *"CONFLICT"* ]]; then
+    textColor=$LIGHT_RED
+  elif [[ "$curLine" == *"merge failed"* ]]; then
+    textColor=$CYAN
+  elif [[ "$curLine" == *"Auto-merging"* ]]; then
+    textColor=$LIGHT_GREEN
+  else
+    textColor=$LOW_INTENSITY_TEXT
+  fi
+
+  echo -e "$textColor > $curLine"
+  RESET_FORMATTING
+done
 
 export AUTO_COMMIT_MSG="Merge branch '$CUR_BRANCH' into $MERGE_INTO_BRANCH via merge_into.sh"
 
@@ -110,7 +125,6 @@ if [[ "$suppress_git_merge_output" == *"Automatic merge went well"* ]]; then
   exit 0
 fi
 
-echo "$suppress_git_merge_output"
 git status
 
 echo -e "${LIGHT_RED}~ ~ ~ ~ ~ ~ ~ ~ Conflicts OMG ~ ~ ~ ~ ~ ~ ~ ~ "; RESET_FORMATTING
@@ -119,12 +133,11 @@ echo "Please resolve them, add a new commit and then push it to origin."
 echo ""
 echo -e "↘ ↘ ↘ ↘ ↓ ↓ ↓ ↓ Copy the command below ↓ ↓ ↓ ↓ ↙ ↙ ↙ ↙"
 echo ""
-echo "git commit -m \"$AUTO_COMMIT_MSG\""
+echo "git commit -m \"\" || git add . && git commit -m \"$AUTO_COMMIT_MSG\" -n && git push origin $MERGE_INTO_BRANCH && git checkout $CUR_BRANCH"
+
 echo ""
 echo -e " ↗ ↗ ↗ ↗ ~ ~ ~ ~ ~ ~ ~ ~ ↑ ↑ ↑ ↑ ~ ~ ~ ~ ~ ~ ~ ↖ ↖ ↖ ↖"
 echo ""
-echo "and then, run"
-echo "git push origin $MERGE_INTO_BRANCH" 
 
 # Save state of this merge to .git/merge_into.state
 echo "Conflicts: $AUTO_COMMIT_MSG" > .git/merge_into.state
