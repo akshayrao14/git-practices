@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "$(dirname $0)/bash_formatting.sh"
+source "$(dirname $0)/bash_formatting.sh"
 
 # Place this in the folder which contains all your repos. Do not place it in the
 # root of any particular repo.
