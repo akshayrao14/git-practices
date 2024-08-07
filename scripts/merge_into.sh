@@ -1,5 +1,5 @@
 #!/bin/bash
-source bash_formatting.sh
+echo "$(dirname $0)/bash_formatting.sh"
 
 # Place this in the folder which contains all your repos. Do not place it in the
 # root of any particular repo.
@@ -21,10 +21,7 @@ fi
 
 case $MERGE_INTO_BRANCH in
 
-  development)
-    ;;
-
-  demo)
+  development|demo|develop)
     ;;
 
   pre-release)
@@ -39,7 +36,7 @@ case $MERGE_INTO_BRANCH in
 
   *)
     echo -e "${LIGHT_RED}Invalid target branch: '$MERGE_INTO_BRANCH'"; RESET_FORMATTING
-    echo "Only development and demo allowed"
+    echo "Only development|demo|develop allowed"
     echo "Try again."
     exit
     ;;
@@ -49,7 +46,7 @@ esac
 CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 case $CUR_BRANCH in
-  development|demo)
+  development|demo|develop)
     echo -e "${LIGHT_RED}Not allowed to merge '$CUR_BRANCH' into anything."; RESET_FORMATTING
     exit
     ;;
