@@ -1,5 +1,4 @@
 # git-practices
-===============
 
 Scripts for managing 
 * Merging feature branches into common ephemeral branches like dev/staging
