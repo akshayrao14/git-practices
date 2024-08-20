@@ -34,10 +34,14 @@ echo "Press Ctrl+C within 5s to cancel..."
 sleep 5
 
 echo ""
-(git checkout "$source_branch" && 
+(
+git checkout "$source_branch" && 
 git pull origin "$source_branch" && 
-git branch -D "$dest_branch" && 
-git checkout "$dest_branch") || (echo "something went wrong while switching branches!" && exit 1)
+(git branch -D "$dest_branch" &>/dev/null || true) &&
+git checkout "$dest_branch"
+) || (
+  echo "something went wrong while switching branches!" && exit 1
+)
 
 commits_since_last_reset=$(git log --boundary --right-only --oneline pre-release...HEAD | grep -o -P '(?<=branch).*(?= into)' | uniq -u 2>&1)
 git reset --hard "$source_branch"
