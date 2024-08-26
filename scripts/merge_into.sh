@@ -5,7 +5,7 @@ source "$(dirname $0)/bash_formatting.sh"
 # ../merge_into.sh development
 
 ########################################################################
-CUR_VERSION="1.0.0"
+CUR_VERSION="1.0.1"
 SCRIPT_NAME="merge_into.sh"
 
 wrap_up(){
