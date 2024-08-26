@@ -65,7 +65,7 @@ sup_fetch=$(git fetch --all --prune 2>&1)
 # filter the branches and get the one containing the API key
 secretPrefix="tern/secrets/mailgun/"
 secretSuffix="/end"
-secretBranch=$(git branch | grep $secretPrefix | xargs)
+secretBranch=$(git branch -a | grep $secretPrefix | xargs)
 mgApiKey=$(echo "$secretBranch" | grep -o -P "(?<=$secretPrefix).*(?=$secretSuffix)")
 
 curGitUser=$(git config user.email)
