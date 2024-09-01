@@ -6,6 +6,31 @@
 # OR
 # reset_branch.sh --from SOURCE --to TARGET
 
+CUR_VERSION="1.0.2"
+SCRIPT_NAME="merge_into.sh"
+
+####################################################################
+# OS stuff
+####################################################################
+YA_DUDE=1
+NA_DUDE= #keep blank
+
+IS_GIT_BASH=$NA_DUDE
+IS_MAC_OS=$NA_DUDE
+
+if [[ $OSTYPE == *"darwin"* ]]; then
+  CUR_OSTYPE=MAC_OS
+  IS_MAC_OS=$YA_DUDE
+elif [[ $CUR_OSTYPE == "msys" ]]; then
+  CUR_OSTYPE=GIT_BASH
+  IS_GIT_BASH=$YA_DUDE
+else
+  CUR_OSTYPE=$OSTYPE
+fi
+
+echo -e "${LOW_INTENSITY_TEXT}OS Detected: $CUR_OSTYPE"
+####################################################################
+
 #Read the argument values
 while [[ "$#" -gt 0 ]]
   do
@@ -50,10 +75,11 @@ supTempFileAdd=$(touch delete.me && echo "$(date)" > delete.me && git add delete
 
 COMMIT_SUBJ="Resetting $dest_branch from $source_branch"
 COMMIT_LOST_DATA="Commits from these branches could be lost:
-> ${commits_since_last_reset:-none}"
-COMMIT_MSG="$COMMIT_SUBJ via reset_branch.sh. $COMMIT_LOST_DATA"
+...
+${commits_since_last_reset:-none}"
+COMMIT_MSG="$COMMIT_SUBJ via reset_branch.sh (v$CUR_VERSION). $COMMIT_LOST_DATA"
 
-(git commit -m "$COMMIT_MSG" && git push origin $dest_branch --force) || (echo "something went wrong while pushing!" && exit 0)
+(git commit -m "$COMMIT_MSG" -n && git push origin $dest_branch --force) || (echo "something went wrong while pushing!" && exit 0)
 
 repoName=$(basename `git rev-parse --show-toplevel`)
 
@@ -65,7 +91,7 @@ sup_fetch=$(git fetch --all --prune 2>&1)
 # filter the branches and get the one containing the API key
 secretPrefix="tern/secrets/mailgun/"
 secretSuffix="/end"
-secretBranch=$(git branch -a | grep $secretPrefix | xargs)
+secretBranch=$(git branch -a | grep -m 1 $secretPrefix | head -1 | xargs)
 mgApiKey=$(echo "$secretBranch" | grep -o -P "(?<=$secretPrefix).*(?=$secretSuffix)")
 
 curGitUser=$(git config user.email)
