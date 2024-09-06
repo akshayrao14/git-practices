@@ -6,8 +6,8 @@
 # OR
 # reset_branch.sh --from SOURCE --to TARGET
 
-CUR_VERSION="1.0.2"
-SCRIPT_NAME="merge_into.sh"
+CUR_VERSION="1.0.3"
+SCRIPT_NAME="reset_branch.sh"
 
 ####################################################################
 # OS stuff
@@ -52,12 +52,6 @@ fi
 
 echo "This will reset the '$dest_branch' branch using the '$source_branch' branch..."
 
-sleep 1
-echo ""
-echo "Press Ctrl+C within 5s to cancel..."
-
-sleep 5
-
 echo ""
 (
 git checkout "$source_branch" && 
@@ -65,23 +59,61 @@ git pull origin "$source_branch" &&
 (git branch -D "$dest_branch" &>/dev/null || true) &&
 git checkout "$dest_branch"
 ) || (
-  echo "something went wrong while switching branches!" && exit 1
+  echo "something went wrong while switching branches!"
+  exit 1
 )
 
-commits_since_last_reset=$(git log --boundary --right-only --oneline pre-release...HEAD | grep -o -E '(?<=branch).*(?= into)' | uniq -u 2>&1)
-git reset --hard "$source_branch"
+# if IS_MAC_OS is true, use -P in grep
+if [[ "$IS_MAC_OS" == "$YA_DUDE" ]]; then
+  grep_pattern='-E'
+else
+  grep_pattern='-P'
+fi
 
-supTempFileAdd=$(touch delete.me && echo "$(date)" > delete.me && git add delete.me)
+merged_branches_since_last_reset=$(git log --boundary --right-only --oneline pre-release...HEAD \
+| grep -o $grep_pattern '(?<=branch).*(?= into)' \
+| sed "s/'//g" \
+| awk -F', ' '!a[$1 FS $2]++' 2>&1)
+
+# check if merged_branches_since_last_reset is empty after trimming for whitespace
+if [[ -z "${merged_branches_since_last_reset// }" ]]; then
+  merged_branches_since_last_reset="none"
+fi
+
+# run the below code only if merged_branches_since_last_reset is not empty
+if [[ "$merged_branches_since_last_reset" != "none" ]]; then
+  echo "$dest_branch contains the following merged branches right now:"
+
+  echo -e "\033[33m$merged_branches_since_last_reset\033[0m"
+  echo "If you reset the branch, these commits will be lost."
+  echo -e "\033[31mDo you want to continue? (y/n)\033[0m"
+  read -n 1 -r -s
+  echo ""
+  if [[ $REPLY != "y" ]]; then
+  echo "Exiting..."
+    exit 0
+  fi
+fi
+
+echo "Press Ctrl+C within 5s to cancel..."
+
+sleep 5
+
+rm -rf delete.me
+
+echo "Resetting $dest_branch from $source_branch..."
+
+supTempFileAdd=$(touch delete.me && date > delete.me && git add delete.me)
 
 COMMIT_SUBJ="Resetting $dest_branch from $source_branch"
 COMMIT_LOST_DATA="Commits from these branches could be lost:
 ...
-${commits_since_last_reset:-none}"
+${merged_branches_since_last_reset:-none}"
 COMMIT_MSG="$COMMIT_SUBJ via reset_branch.sh (v$CUR_VERSION). $COMMIT_LOST_DATA"
 
 (git commit -m "$COMMIT_MSG" -n && git push origin $dest_branch --force) || (echo "something went wrong while pushing!" && exit 0)
 
-repoName=$(basename `git rev-parse --show-toplevel`)
+repoName="$(basename "$(git rev-parse --show-toplevel)")"
 
 # fetches all the branches of the repo
 # delete any local branches whose remote counterpart is deleted
@@ -92,7 +124,7 @@ sup_fetch=$(git fetch --all --prune 2>&1)
 secretPrefix="tern/secrets/mailgun/"
 secretSuffix="/end"
 secretBranch=$(git branch -a | grep -m 1 $secretPrefix | head -1 | xargs)
-mgApiKey=$(echo "$secretBranch" | grep -o -E "(?<=$secretPrefix).*(?=$secretSuffix)")
+mgApiKey=$(echo "$secretBranch" | grep -o $grep_pattern "(?<=$secretPrefix).*(?=$secretSuffix)")
 
 curGitUser=$(git config user.email)
 
@@ -103,4 +135,4 @@ supMailer=$(curl -s --user "api:$mgApiKey" \
       -F to=squad-frontend-aaaalmsqdekphutvjpqmqmqnwu@terngroup.slack.com \
       -F subject="$repoName: '$dest_branch' branch reset from '$source_branch' by $curGitUser" \
       -F text="$COMMIT_LOST_DATA")
-      # -F to=akshay.rao@tern-group.com \
+
