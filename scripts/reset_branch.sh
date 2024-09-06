@@ -68,7 +68,7 @@ git checkout "$dest_branch"
   echo "something went wrong while switching branches!" && exit 1
 )
 
-commits_since_last_reset=$(git log --boundary --right-only --oneline pre-release...HEAD | grep -o -P '(?<=branch).*(?= into)' | uniq -u 2>&1)
+commits_since_last_reset=$(git log --boundary --right-only --oneline pre-release...HEAD | grep -o -E '(?<=branch).*(?= into)' | uniq -u 2>&1)
 git reset --hard "$source_branch"
 
 supTempFileAdd=$(touch delete.me && echo "$(date)" > delete.me && git add delete.me)
@@ -92,15 +92,15 @@ sup_fetch=$(git fetch --all --prune 2>&1)
 secretPrefix="tern/secrets/mailgun/"
 secretSuffix="/end"
 secretBranch=$(git branch -a | grep -m 1 $secretPrefix | head -1 | xargs)
-mgApiKey=$(echo "$secretBranch" | grep -o -P "(?<=$secretPrefix).*(?=$secretSuffix)")
+mgApiKey=$(echo "$secretBranch" | grep -o -E "(?<=$secretPrefix).*(?=$secretSuffix)")
 
 curGitUser=$(git config user.email)
 
 supMailer=$(curl -s --user "api:$mgApiKey" \
-  	https://api.eu.mailgun.net/v3/mg.tern-group.com/messages \
-  	-F from='Chugli.ai <chugal.kishore@mg.tern-group.com>' \
-  	-F to=squad-backend-aaaal75qw57nltfnpd5ipeaenu@terngroup.slack.com \
-  	-F to=squad-frontend-aaaalmsqdekphutvjpqmqmqnwu@terngroup.slack.com \
-  	-F subject="$repoName: '$dest_branch' branch reset from '$source_branch' by $curGitUser" \
-  	-F text="$COMMIT_LOST_DATA")
-  	# -F to=akshay.rao@tern-group.com \
+      https://api.eu.mailgun.net/v3/mg.tern-group.com/messages \
+      -F from='Chugli.ai <chugal.kishore@mg.tern-group.com>' \
+      -F to=squad-backend-aaaal75qw57nltfnpd5ipeaenu@terngroup.slack.com \
+      -F to=squad-frontend-aaaalmsqdekphutvjpqmqmqnwu@terngroup.slack.com \
+      -F subject="$repoName: '$dest_branch' branch reset from '$source_branch' by $curGitUser" \
+      -F text="$COMMIT_LOST_DATA")
+      # -F to=akshay.rao@tern-group.com \
