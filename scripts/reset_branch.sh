@@ -102,6 +102,7 @@ sleep 5
 rm -rf delete.me
 
 echo "Resetting $dest_branch from $source_branch..."
+git reset --hard "$source_branch"
 
 supTempFileAdd=$(touch delete.me && date > delete.me && git add delete.me)
 
