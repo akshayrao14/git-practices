@@ -9,9 +9,9 @@ CUR_VERSION="1.0.1"
 SCRIPT_NAME="merge_into.sh"
 
 wrap_up(){
-  echo -e ""
-  echo -e "${LOW_INTENSITY_TEXT_DIM}Any suggestions or issues? Please let the developer know!"
-  exit 0
+  echo -e "${LOW_INTENSITY_TEXT_DIM_DIM}Thanks for using git-practices!\nAny suggestions or issues? Please let the developer know!"
+  echo -e "${LOW_INTENSITY_TEXT_DIM}Wanna help me with beta-testing? Switch to the 'beta' branch in your git-practices repo :)"
+  RESET_FORMATTING
 }
 
 #Read the argument values
