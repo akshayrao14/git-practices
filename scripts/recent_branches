@@ -1,0 +1,8 @@
+#!/bin/bash
+
+branch_count=$1
+echo "Recent branches:"
+git branch --sort=-committerdate --color=always | head -n "${branch_count:-10}"
+
+echo -e "\e[2mTotal local branches: $(git branch --sort=-committerdate --color=always | wc -l)\e[0m"
+echo -e "\e[33mHINT: You can pass a number to the script to get more or less branches\e[0m"
