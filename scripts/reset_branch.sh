@@ -57,6 +57,25 @@ while [[ "$#" -gt 0 ]]; do
       fi
     done
 
+    # Start the process of merging now.
+    supFetch=$(git fetch origin --prune 2>&1)
+
+    export LOCAL_CUR_BR="$merge_feat_branch"
+    export REMOTE_CUR_BR="origin/$merge_feat_branch"
+
+    if [ "$(git rev-parse "$LOCAL_CUR_BR")" == "$(git rev-parse "$REMOTE_CUR_BR")" ]
+    then
+        echo ""
+    else
+        echo ""
+        echo -e "${LIGHT_RED}Your local \"$merge_feat_branch\" branch is NOT in sync with its remote origin."; RESET_FORMATTING
+        echo -e "\tRun\tgit pull origin $merge_feat_branch"
+        echo -e "\t-or-\tcommit/stash/discard the local changes..."
+        echo -e "\t-or-\tgit push origin $merge_feat_branch"
+        echo "and rerun this."
+        exit 1
+    fi
+
     shift
     ;;
   *) dest_branch="$1" ;;
@@ -157,7 +176,7 @@ then
 fi
 
 if [[ "$successOp" == "0" ]]; then
-  echo -e "${LIGHT_RED}Failed to merge. Try this without the --merge_into option. Exiting..."; RESET_FORMATTING
+  echo -e "${LIGHT_RED}Failed to merge. Try this without the --merge-into option. Exiting..."; RESET_FORMATTING
   exit 1
 fi
 
@@ -197,3 +216,10 @@ supMailer=$(curl -s --user "api:$mgApiKey" \
   -F to=squad-frontend-aaaalmsqdekphutvjpqmqmqnwu@terngroup.slack.com \
   -F subject="$repoName: '$dest_branch' branch reset from '$source_branch' by $curGitUser" \
   -F text="$COMMIT_LOST_DATA")
+
+if test -n "$merge_feat_branch"
+then
+  echo -e "${LIGHT_GREEN}Success! Switching back to your original branch '$SAVED_CUR_BRANCH'..." &&
+  RESET_FORMATTING &&
+  git checkout "$merge_feat_branch"
+fi

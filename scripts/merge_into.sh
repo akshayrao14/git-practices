@@ -5,18 +5,55 @@ source "$(dirname $0)/bash_formatting.sh"
 # ../merge_into.sh development
 
 ########################################################################
-CUR_VERSION="1.0.1"
+CUR_VERSION="1.1.2"
 SCRIPT_NAME="merge_into.sh"
 
 wrap_up(){
   echo -e ""
-  echo -e "${LOW_INTENSITY_TEXT_DIM_DIM}Thanks for using git-practices!\nAny suggestions or issues? Please let the developer know!"
-  echo -e "${LOW_INTENSITY_TEXT_DIM}Wanna help me with beta-testing? Switch to the 'beta' branch in your git-practices repo :)"
+  echo -e "${LOW_INTENSITY_TEXT}Thanks for using git-practices!\nSuggestions? Please let the developer know!"
+  echo -e "${LOW_INTENSITY_TEXT_DIM}To become a beta-tester, switch to the 'beta' branch in your git-practices repo :)"
   RESET_FORMATTING
   exit 0
 }
 
-#Read the argument values
+########################################################################
+# Get the latest git-practices code first                              #
+########################################################################
+# Maintaining the merge_into script: take auto pull from repo - best effort
+update_git_practices(){
+  echo -e "${LOW_INTENSITY_TEXT}Updating git-practices...";
+
+  script_dir=$1
+  
+  cd "$script_dir" || exit 0
+  cd ..
+
+  sup_fetch=$(git fetch --all --prune 2>&1)
+
+  GIT_PRAC_CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  export GIT_PRAC_CUR_BRANCH
+  echo -e "${LOW_INTENSITY_TEXT}Using git-practices branch: $GIT_PRAC_CUR_BRANCH"
+  RESET_FORMATTING
+
+  branch_update_list=("main" "beta")
+  # loop through branch_update_list and check if the current branch is in the list
+  for branch in "${branch_update_list[@]}"; do
+    if [[ "$GIT_PRAC_CUR_BRANCH" == "$branch" ]]; then
+      # Pull latest changes into branch
+      suppress_git_pull=$(git pull origin "$GIT_PRAC_CUR_BRANCH" 2>&1)
+    else
+      # Pull latest changes into branch without git checkout
+      suppress_git_pull=$(git fetch origin "$branch":"$branch" 2>&1)
+    fi
+  done
+}
+
+cur_dir=$(pwd)
+update_git_practices "$(echo $(dirname "$0"))"
+cd "$cur_dir" || exit
+
+########################################################################
+# Read the argument values
 commit_state_file=.git/merge_into.state
 case $1 in
   --abort)
@@ -168,13 +205,6 @@ SAVED_CUR_BRANCH=$CUR_BRANCH
 SAVED_AUTO_COMMIT_MSG='$AUTO_COMMIT_MSG'
 " > $commit_state_file
 
-
-# Maintaining the merge_into script: take auto pull from repo - best effort
-cur_dir=$(pwd)
-script_dir=$(echo $(dirname $0))
-sup_takePullOfGitPractices=$(cd "$script_dir" && cd .. && git checkout main 2>&1 && git pull)
-cd "$cur_dir" || exit
-
 # Start the process of merging now.
 supFetch=$(git fetch origin --prune 2>&1)
 
@@ -195,22 +225,28 @@ else
     exit 1
 fi
 
-echo "Starting the steps to send commits from $CUR_BRANCH to $MERGE_INTO_BRANCH..."; RESET_FORMATTING;
+echo -e "${LOW_INTENSITY_TEXT}Starting the steps to send commits from $CUR_BRANCH to $MERGE_INTO_BRANCH..."; RESET_FORMATTING;
 
-echo -e "${LOW_INTENSITY_TEXT}Switching to $MERGE_INTO_BRANCH..."
+echo -e "${LOW_INTENSITY_TEXT_DIM}Switching to $MERGE_INTO_BRANCH..."
 git checkout "$MERGE_INTO_BRANCH" 2>&1
 
+RESET_FORMATTING;
 echo -e "${CYAN}Discarding all unpushed changes of your local $MERGE_INTO_BRANCH branch.\n"; RESET_FORMATTING;
+echo -e "${LOW_INTENSITY_TEXT}Press Ctrl+C to cancel..."; RESET_FORMATTING;
 sleep 5
+echo -e "${LOW_INTENSITY_TEXT_DIM}";
 git reset --hard "origin/$MERGE_INTO_BRANCH" 2>&1 && git clean -fd 2>&1
 RESET_FORMATTING;
 
-echo -e "${LOW_INTENSITY_TEXT}${LINE_CLR}Pulling latest $MERGE_INTO_BRANCH... from remote."
+echo -e "${LOW_INTENSITY_TEXT_DIM}${LINE_CLR}Pulling latest $MERGE_INTO_BRANCH... from remote."
 git pull origin "$MERGE_INTO_BRANCH" 2>&1
 
-echo -e "${CYAN}Running GIT MERGE $CUR_BRANCH --SQUASH"; RESET_FORMATTING;
+RESET_FORMATTING;
+echo -e "${CYAN}Running GIT MERGE $CUR_BRANCH"; RESET_FORMATTING;
 sleep 1
-suppress_git_merge_output=$(git merge "$CUR_BRANCH" --squash 2>&1)
+
+AUTO_COMMIT_MSG="Merge branch '$CUR_BRANCH' into '$MERGE_INTO_BRANCH' via $SCRIPT_NAME (v$CUR_VERSION - $GIT_PRAC_CUR_BRANCH)"
+suppress_git_merge_output=$(git merge "$CUR_BRANCH" -m "AutoMerge: $AUTO_COMMIT_MSG" 2>&1)
 
 IFS=$'\n'; splitLines=($suppress_git_merge_output); unset IFS;
 for curLine in "${splitLines[@]}"; do
@@ -228,28 +264,30 @@ for curLine in "${splitLines[@]}"; do
     textFormatStart="${LINE_CLR}$LOW_INTENSITY_TEXT"
     textFormatEnd="\n"
   fi
-  sleep 0.5
+  sleep 0.2
   echo -e -n "${textFormatStart} > $curLine${textFormatEnd}"
 
   RESET_FORMATTING
 done
 
-AUTO_COMMIT_MSG="Merge branch '$CUR_BRANCH' into '$MERGE_INTO_BRANCH' via $SCRIPT_NAME (v$CUR_VERSION)"
 # Save state of this merge to .git/merge_into.state
 echo -e "
 SAVED_AUTO_COMMIT_MSG='$AUTO_COMMIT_MSG'
 " >> $commit_state_file
 
-if [[ "$suppress_git_merge_output" == *"Automatic merge went well"* ]]; then
+if [[ "$suppress_git_merge_output" != *"CONFLICT"* ]]; then
 
   echo ""
   echo -e "${LIGHT_GREEN}~ ~ ~ ~ ~ ~ ~ ~ No conflicts! ~ ~ ~ ~ ~ ~ ~ ~"; RESET_FORMATTING
   echo -e "${LIGHT_GREEN}Auto-committing and auto-pushing!"; RESET_FORMATTING
+
+  echo -e "${LOW_INTENSITY_TEXT_DIM}"
   (
-    git commit -m "AutoMerge: $AUTO_COMMIT_MSG" && 
+    # git commit -m "AutoMerge: $AUTO_COMMIT_MSG" && 
+    
     git push origin "$MERGE_INTO_BRANCH" && 
-    rm -f $commit_state_file &&
-    echo -e "${LIGHT_GREEN}Success! Switching back to your original branch '$CUR_BRANCH'..." &&
+    rm -f $commit_state_file && RESET_FORMATTING &&
+    echo -e "${LIGHT_GREEN}Success! Switching back to your original branch '$CUR_BRANCH'..." && 
     git checkout "$CUR_BRANCH"
   ) || echo -e "${LIGHT_RED}\nAutoMerge failed during commit/push. Please check why..."
   RESET_FORMATTING
