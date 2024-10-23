@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BLACK=$(tput setaf 40)
-YELLOW=$(tput setaf 3)
+YELLOW=$(tput setaf 11)
 WHITE_BOLD=$(tput setaf 7 bold)
 BLUE_UNDL=$(tput setaf 4 smul)
 BLUE_ITAL=$(tput setaf 4 sitm)

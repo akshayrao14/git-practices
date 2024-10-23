@@ -1,60 +1,28 @@
 #!/bin/bash
 source "$(dirname $0)/bash_formatting.sh"
+source "$(dirname $0)/helpers/helper_merge.sh"
+source "$(dirname $0)/helpers/spinner.sh"
 
 # git checkout my-feature-branch
-# ../merge_into.sh development
+# merge_into.sh development
 
 ########################################################################
-CUR_VERSION="1.1.2"
+CUR_VERSION="1.2.1"
 SCRIPT_NAME="merge_into.sh"
-
-wrap_up(){
-  echo -e ""
-  echo -e "${LOW_INTENSITY_TEXT}Thanks for using git-practices!\nSuggestions? Please let the developer know!"
-  echo -e "${LOW_INTENSITY_TEXT_DIM}To become a beta-tester, switch to the 'beta' branch in your git-practices repo :)"
-  RESET_FORMATTING
-  exit 0
-}
-
-########################################################################
-# Get the latest git-practices code first                              #
-########################################################################
-# Maintaining the merge_into script: take auto pull from repo - best effort
-update_git_practices(){
-  echo -e "${LOW_INTENSITY_TEXT}Updating git-practices...";
-
-  script_dir=$1
-  
-  cd "$script_dir" || exit 0
-  cd ..
-
-  sup_fetch=$(git fetch --all --prune 2>&1)
-
-  GIT_PRAC_CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-  export GIT_PRAC_CUR_BRANCH
-  echo -e "${LOW_INTENSITY_TEXT}Using git-practices branch: $GIT_PRAC_CUR_BRANCH"
-  RESET_FORMATTING
-
-  branch_update_list=("main" "beta")
-  # loop through branch_update_list and check if the current branch is in the list
-  for branch in "${branch_update_list[@]}"; do
-    if [[ "$GIT_PRAC_CUR_BRANCH" == "$branch" ]]; then
-      # Pull latest changes into branch
-      suppress_git_pull=$(git pull origin "$GIT_PRAC_CUR_BRANCH" 2>&1)
-    else
-      # Pull latest changes into branch without git checkout
-      suppress_git_pull=$(git fetch origin "$branch":"$branch" 2>&1)
-    fi
-  done
-}
-
 cur_dir=$(pwd)
-update_git_practices "$(echo $(dirname "$0"))"
-cd "$cur_dir" || exit
 
 ########################################################################
 # Read the argument values
+########################################################################
 commit_state_file=.git/merge_into.state
+
+if [ -f $commit_state_file ]; then
+  source $commit_state_file
+fi
+
+########################################################################
+# Parse the arguments: --abort, --continue or <>
+########################################################################
 case $1 in
   --abort)
     echo -e "${LOW_INTENSITY_TEXT}merge_into: $1 flag found. Running post-conflict resolution flow..."; RESET_FORMATTING
@@ -66,10 +34,7 @@ case $1 in
         exit 1;
     fi
 
-    source $commit_state_file
-
     echo -e "${LOW_INTENSITY_TEXT}merge_into: Discarding staged/unstaged changes in ${SAVED_MERGE_INTO_BRANCH}."; RESET_FORMATTING
-    sleep 2
     git restore --staged . && git checkout . && git checkout $SAVED_CUR_BRANCH
 
     wrap_up
@@ -88,58 +53,17 @@ case $1 in
     fi
 
     sleep 1
-    echo -e "${LOW_INTENSITY_TEXT}merge_into: Attempting to trigger pre-commit hooks using an empty commit message..."; RESET_FORMATTING
 
-    sup_runLinters=$(git commit -m "" 2>&1)
-    commitErrors=$(echo "$sup_runLinters" | grep problem | grep error | grep warning)
-    if test "$commitErrors";
-    then
-      echo -e "$sup_runLinters"
-      echo -e "${LIGHT_RED}There are some pre-commit errors!"; RESET_FORMATTING
-      echo -e "Please try again after resolving and them."
-      wrap_up
-      exit 1
-    fi
-
-    echo -e -n "${LOW_INTENSITY_TEXT}${LINE_CLR}merge_into: no issues with pre-commit hooks!"; RESET_FORMATTING
-    sleep 2
-    echo -e -n "${LOW_INTENSITY_TEXT}${LINE_CLR}merge_into: Committing and pushing!"; RESET_FORMATTING
-    echo ""
-    source $commit_state_file
-    git add -u . # stage modified or deleted files (usually by the pre-commit)
-    
-    (
-      git commit -m "$SAVED_AUTO_COMMIT_MSG" -n
-    ) || (
-      echo -e "${YELLOW}Strange... Looks like there's nothing to commit... or push."
-      RESET_FORMATTING
-      echo -e "This usually happens you didn't pick any of your feature branch's changes\n
-      while resolving conflicts."
-      echo -e "Try it again - abort merge_into and start from the beginning. Run:";
-      echo -e "${CYAN}merge_into.sh --abort"
-      wrap_up
-      exit 1
-    )
-
-    (
-      git pull --rebase origin "$SAVED_MERGE_INTO_BRANCH" && 
-      git push origin "$SAVED_MERGE_INTO_BRANCH" &&
-      rm -f $commit_state_file && echo "file removed" &&
-      echo -e "${LIGHT_GREEN}Success! Switching back to your original branch '$SAVED_CUR_BRANCH'..." &&
-      RESET_FORMATTING &&
-      git checkout "$SAVED_CUR_BRANCH" && 
-      wrap_up &&
-      exit 0
-    ) || (
-      git restore --staged . &&
-      echo -e "${LIGHT_RED}Something went wrong. Try committing/pushing your code manually." && wrap_up
-    )
-
-    RESET_FORMATTING
-    exit 1
-  ;;
+    post_conflict_resolution
+    ;;
+  *)
+    rm -f $commit_state_file
+    ;;
 esac
 
+########################################################################
+# Validate destination branch
+########################################################################
 MERGE_INTO_BRANCH=$1
 
 if test -z "$MERGE_INTO_BRANCH"
@@ -149,10 +73,9 @@ then
   wrap_up
   exit 1
 fi
-
 case $MERGE_INTO_BRANCH in
 
-  development|demo|develop)
+  development|demo|develop|staging|stag)
     ;;
 
   pre-release)
@@ -169,13 +92,16 @@ case $MERGE_INTO_BRANCH in
 
   *)
     echo -e "${LIGHT_RED}Invalid target branch: '$MERGE_INTO_BRANCH'"; RESET_FORMATTING
-    echo -e "Only development|demo|develop allowed"
+    echo -e "Only development|demo|develop|staging|stag allowed"
     echo -e "Try again."
     wrap_up
     exit
     ;;
 esac
 
+########################################################################
+# Validate source branch
+########################################################################
 # REPO_NAME=$(basename $(git rev-parse --show-toplevel))
 CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
@@ -205,7 +131,11 @@ SAVED_CUR_BRANCH=$CUR_BRANCH
 SAVED_AUTO_COMMIT_MSG='$AUTO_COMMIT_MSG'
 " > $commit_state_file
 
-# Start the process of merging now.
+########################################################################
+# Setup the process of merging
+########################################################################
+
+## Check if the current branch is in sync with its remote origin
 supFetch=$(git fetch origin --prune 2>&1)
 
 export LOCAL_CUR_BR="$CUR_BRANCH"
@@ -217,36 +147,58 @@ then
 else
     echo ""
     echo -e "${LIGHT_RED}Your local \"$CUR_BRANCH\" branch is NOT in sync with its remote origin."; RESET_FORMATTING
-    echo -e "\tRun\tgit pull origin $CUR_BRANCH"
-    echo -e "\t-or-\tcommit/stash/discard the local changes..."
-    echo -e "\t-or-\tgit push origin $CUR_BRANCH"
-    echo "and rerun merge_into."
+    echo -e "${YELLOW}\tRun\tgit pull origin $CUR_BRANCH"; RESET_FORMATTING
+    echo -e "${CYAN}\t-or-\t${YELLOW}commit/stash/discard the local changes..."; RESET_FORMATTING
+    echo -e "${CYAN}\t-or-\t${YELLOW}git push origin $CUR_BRANCH"; RESET_FORMATTING
+    echo -e "${LIGHT_RED}and rerun merge_into."; RESET_FORMATTING
     wrap_up
     exit 1
 fi
 
-echo -e "${LOW_INTENSITY_TEXT}Starting the steps to send commits from $CUR_BRANCH to $MERGE_INTO_BRANCH..."; RESET_FORMATTING;
-
-echo -e "${LOW_INTENSITY_TEXT_DIM}Switching to $MERGE_INTO_BRANCH..."
+## Checkout the target branch and get a clean version of it from origin
+echo -e "${LOW_INTENSITY_TEXT}Starting the steps to MERGE commits from '$CUR_BRANCH' INTO '$MERGE_INTO_BRANCH'...";
+echo -e "${LOW_INTENSITY_TEXT_DIM}"
 git checkout "$MERGE_INTO_BRANCH" 2>&1
-
-RESET_FORMATTING;
-echo -e "${CYAN}Discarding all unpushed changes of your local $MERGE_INTO_BRANCH branch.\n"; RESET_FORMATTING;
-echo -e "${LOW_INTENSITY_TEXT}Press Ctrl+C to cancel..."; RESET_FORMATTING;
-sleep 5
-echo -e "${LOW_INTENSITY_TEXT_DIM}";
-git reset --hard "origin/$MERGE_INTO_BRANCH" 2>&1 && git clean -fd 2>&1
 RESET_FORMATTING;
 
-echo -e "${LOW_INTENSITY_TEXT_DIM}${LINE_CLR}Pulling latest $MERGE_INTO_BRANCH... from remote."
-git pull origin "$MERGE_INTO_BRANCH" 2>&1
+echo -e "${CYAN}About to discard all unpushed changes from ${YELLOW}$MERGE_INTO_BRANCH";
+RESET_FORMATTING;
+
+########################################################################
+# Update git-practices repo
+########################################################################
+GIT_PRAC_CUR_BRANCH=
+# run_with_spinner \
+#   "${LOW_INTENSITY_TEXT}Updating git-practices..." \
+#   update_git_practices "$(echo $(dirname "$0"))"
+# cd "$cur_dir" || exit
+update_git_practices "$(echo $(dirname "$0"))" &
+
+run_with_spinner \
+  "${YELLOW}This is a destructive operation (locally). To cancel, press Ctrl+C now..." \
+  sleep 5
+RESET_FORMATTING
+
+run_with_spinner \
+  "${LOW_INTENSITY_TEXT_DIM}Discarding..." \
+  git_clean_branch "$MERGE_INTO_BRANCH"
+RESET_FORMATTING;
+
+run_with_spinner \
+  "${LOW_INTENSITY_TEXT_DIM}${LINE_CLR}Pulling latest $MERGE_INTO_BRANCH... from remote." \
+  git_pull "$MERGE_INTO_BRANCH"
 
 RESET_FORMATTING;
+
+########################################################################
+# Run GIT MERGE
+########################################################################
 echo -e "${CYAN}Running GIT MERGE $CUR_BRANCH"; RESET_FORMATTING;
 sleep 1
-
 AUTO_COMMIT_MSG="Merge branch '$CUR_BRANCH' into '$MERGE_INTO_BRANCH' via $SCRIPT_NAME (v$CUR_VERSION - $GIT_PRAC_CUR_BRANCH)"
 suppress_git_merge_output=$(git merge "$CUR_BRANCH" -m "AutoMerge: $AUTO_COMMIT_MSG" 2>&1)
+
+MERGE_NOT_NEEDED=0
 
 IFS=$'\n'; splitLines=($suppress_git_merge_output); unset IFS;
 for curLine in "${splitLines[@]}"; do
@@ -259,7 +211,12 @@ for curLine in "${splitLines[@]}"; do
     textFormatEnd="\n"
   elif [[ "$curLine" == *"Auto-merging"* ]]; then
     textFormatStart="${LINE_CLR}${LIGHT_GREEN}"
-    textFormatEnd=""
+    textFormatEnd="\n"
+  elif [[ "$curLine" == *"Already up to date"* ]]; then
+    MERGE_NOT_NEEDED=1
+    textFormatStart="${LINE_CLR}${LIGHT_GREEN}"
+    textFormatEnd="\n"
+    break
   else
     textFormatStart="${LINE_CLR}$LOW_INTENSITY_TEXT"
     textFormatEnd="\n"
@@ -270,23 +227,36 @@ for curLine in "${splitLines[@]}"; do
   RESET_FORMATTING
 done
 
-# Save state of this merge to .git/merge_into.state
-echo -e "
-SAVED_AUTO_COMMIT_MSG='$AUTO_COMMIT_MSG'
-" >> $commit_state_file
-
+########################################################################
+# Happy cases!
+########################################################################
 if [[ "$suppress_git_merge_output" != *"CONFLICT"* ]]; then
 
   echo ""
-  echo -e "${LIGHT_GREEN}~ ~ ~ ~ ~ ~ ~ ~ No conflicts! ~ ~ ~ ~ ~ ~ ~ ~"; RESET_FORMATTING
-  echo -e "${LIGHT_GREEN}Auto-committing and auto-pushing!"; RESET_FORMATTING
 
-  echo -e "${LOW_INTENSITY_TEXT_DIM}"
-  (
-    # git commit -m "AutoMerge: $AUTO_COMMIT_MSG" && 
+  # if MERGE_NOT_NEEDED is 1, we're done
+  if [[ "$MERGE_NOT_NEEDED" == "1" ]]; then
+    echo -e "${LIGHT_GREEN}~ ~ ~ ~ ~ ~ ~ ~ '$MERGE_INTO_BRANCH' is already up to date ~ ~ ~ ~ ~ ~ ~ ~"; RESET_FORMATTING
+
+    echo -e "${LOW_INTENSITY_TEXT}"
+    git checkout "$CUR_BRANCH"
     
-    git push origin "$MERGE_INTO_BRANCH" && 
-    rm -f $commit_state_file && RESET_FORMATTING &&
+    wrap_up
+    exit 0
+  fi
+
+  echo ""
+  echo -e "${LIGHT_GREEN}~ ~ ~ ~ ~ ~ ~ ~ No conflicts! ~ ~ ~ ~ ~ ~ ~ ~"; RESET_FORMATTING
+  
+  (
+    run_with_spinner \
+      "${LOW_INTENSITY_TEXT_DIM}Auto-Committing..." \
+      git_commit_msg "AutoMerge: $AUTO_COMMIT_MSG" && 
+    run_with_spinner \
+      "${LOW_INTENSITY_TEXT_DIM}Auto-Pushing..." \
+      git_push "$MERGE_INTO_BRANCH" && 
+    rm -f $commit_state_file && 
+    RESET_FORMATTING &&
     echo -e "${LIGHT_GREEN}Success! Switching back to your original branch '$CUR_BRANCH'..." && 
     git checkout "$CUR_BRANCH"
   ) || echo -e "${LIGHT_RED}\nAutoMerge failed during commit/push. Please check why..."
@@ -295,21 +265,68 @@ if [[ "$suppress_git_merge_output" != *"CONFLICT"* ]]; then
   exit 0
 fi
 
-sleep 2
-echo ""
-git status
+########################################################################
+# Conflicts!
+########################################################################
 
-sleep 1
+# Save state of this merge to .git/merge_into.state
+echo -e "
+SAVED_AUTO_COMMIT_MSG='$AUTO_COMMIT_MSG'
+" >> $commit_state_file
+
 echo -e "";
-echo -e "${LIGHT_RED}\t\tSummary"; RESET_FORMATTING
+
 echo -e "${LIGHT_RED}~ ~ ~ ~ ~ ~ ~ ~ Conflicts OMG ~ ~ ~ ~ ~ ~ ~ ~ "; RESET_FORMATTING
-echo -e "${YELLOW}Please resolve these locally, then run the commands below to continue:"; RESET_FORMATTING
+echo -e "${BLUE_ITAL}A rebase a day, keeps them conflicts away!"; RESET_FORMATTING
+echo ""
+run_with_spinner \
+  "${LOW_INTENSITY_TEXT}Checking if you have any git mergetool already setup..." \
+  sleep 2
+
+########################################################################
+# if there's no mergetool, ask if to set vscode as mergetool or not
+########################################################################
+mergetool_name=$(git config --get merge.tool)
+if test -z "$mergetool_name"
+then
+  ask_make_vscode_mergetool
+fi
+mergetool_name=$(git config --get merge.tool)
+
+########################################################################
+# Run whatever mergetool is present
+########################################################################
+if test "$mergetool_name"; then
+  run_with_spinner \
+    "${CYAN}mergetool.name is set to $mergetool_name. Running it now..." \
+    sleep 2
+  RESET_FORMATTING
+
+  echo -e "${LOW_INTENSITY_TEXT}"
+  git mergetool
+  RESET_FORMATTING
+
+  retval=$( has_merge_conflicts )
+  if [[ "$retval" == "" ]]
+  then
+      echo -e "${LIGHT_GREEN}Conflicts resolved!"; RESET_FORMATTING
+      post_conflict_resolution
+      
+      exit 0
+  else
+      run_with_spinner \
+        "${CYAN}Checking for conflicts..." \
+        sleep 2
+      
+      echo -e "${LIGHT_RED}Conflicts still detected!"; RESET_FORMATTING
+  fi
+fi
+echo -e "\tACTION NEEDED!"
+echo -e "${YELLOW}Please resolve conflicts locally, then run the commands below to continue:"; RESET_FORMATTING
 echo -e "${CYAN}$SCRIPT_NAME --continue ${LOW_INTENSITY_TEXT} to continue merging"; RESET_FORMATTING
 echo -e "\tOR"
 echo -e "${CYAN}$SCRIPT_NAME --abort ${LOW_INTENSITY_TEXT} to abandon merging"; RESET_FORMATTING
-echo -e "";
+echo -e ""
 
-sleep 2
-echo -e "${BLUE_ITAL}A rebase a day, keeps conflicts away!"; RESET_FORMATTING
 wrap_up
 exit 0
