@@ -51,7 +51,7 @@ wrap_up(){
 
 # Maintaining the merge_into script: take auto pull from repo - best effort
 update_git_practices(){
-  
+  cur_pwd=$(pwd)
   script_dir=$1
   
   cd "$script_dir" || (echo -e "${LIGHT_RED}Unable to find the script directory!")
@@ -76,13 +76,16 @@ update_git_practices(){
     fi
   done
   RESET_FORMATTING
+  cd "$cur_pwd" || exit
 }
 
 set_git_practices_branch(){
+  cur_pwd=$(pwd)
   script_dir=$1
   cd "$script_dir" || (echo -e "${LIGHT_RED}Unable to find the script directory!")
   cd ..
   GIT_PRAC_CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  cd "$cur_pwd" || exit
 }
 
 ########################################################################

@@ -153,7 +153,6 @@ RESET_FORMATTING;
 # Update git-practices repo
 ########################################################################
 update_git_practices "$script_dir" &
-set_git_practices_branch "$script_dir"
 
 run_with_spinner \
   "${YELLOW}This is a destructive operation (locally). To cancel, press Ctrl+C now..." \
@@ -176,9 +175,8 @@ RESET_FORMATTING;
 ########################################################################
 echo -e "${CYAN}Running GIT MERGE $CUR_BRANCH"; RESET_FORMATTING;
 sleep 1
+set_git_practices_branch "$script_dir"
 AUTO_COMMIT_MSG="Merge branch '$CUR_BRANCH' into '$MERGE_INTO_BRANCH' via $SCRIPT_NAME (v$CUR_VERSION - $GIT_PRAC_CUR_BRANCH)"
-
-echo "COMMIT MESSAGE: $AUTO_COMMIT_MSG"
 
 suppress_git_merge_output=$(git merge "$CUR_BRANCH" -m "AutoMerge: $AUTO_COMMIT_MSG" 2>&1)
 
