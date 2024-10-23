@@ -6,6 +6,7 @@ WHITE_BOLD=$(tput setaf 7 bold)
 BLUE_UNDL=$(tput setaf 4 smul)
 BLUE_ITAL=$(tput setaf 4 sitm)
 CYAN_BLINK=$(tput setaf 6 blink)
+RED_BLINK=$(tput setaf 9 blink)
 CYAN_BOLD=$(tput setaf 6 bold)
 CYAN=$(tput setaf 14)
 LIGHT_GREEN=$(tput setaf 10)
@@ -33,3 +34,5 @@ export LIGHT_RED
 export LOW_INTENSITY_TEXT
 export LOW_INTENSITY_TEXT_DIM
 export LINE_CLR
+export RED_BLINK
+export RESET_FORMATTING

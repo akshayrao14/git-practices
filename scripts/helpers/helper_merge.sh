@@ -40,7 +40,14 @@ append_to_saved_commit_state(){
 wrap_up(){
   echo -e ""
   echo -e "${YELLOW}Thanks for using git-practices!\nSuggestions? Please let the developer know!"
-  echo -e "${LOW_INTENSITY_TEXT}To become a beta-tester, switch to the 'beta' branch in your git-practices repo :)"
+
+  # if if_git_practices_beta is false, then it's not a beta-tester
+  if ! if_git_practices_beta; then
+    echo -e "${LOW_INTENSITY_TEXT}To become a beta-tester, switch to the 'beta' branch in your git-practices repo :)"
+  else
+    echo -e "${LIGHT_GREEN}Thanks for being a beta-tester! You rock ${RED_BLINK}❤️"
+  fi
+
   RESET_FORMATTING
   exit 0
 }
@@ -86,6 +93,13 @@ set_git_practices_branch(){
   cd ..
   GIT_PRAC_CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
   cd "$cur_pwd" || exit
+}
+
+if_git_practices_beta(){
+  if [[ "$GIT_PRAC_CUR_BRANCH" == "beta" ]]; then
+    return 0
+  fi
+  return 1
 }
 
 ########################################################################
@@ -145,8 +159,7 @@ conflicts=$(git diff -S "<<<<<<< HEAD" -S "=======" -S ">>>>>>> $(git name-rev -
   #
   # Pushes the given branch to the origin.
 git_push() {
-  # git push origin $1 2>&1 || echo -e "${LIGHT_RED}Error while performing git push!"
-  echo "FAKE PUSSHHHHHHHHHHHH"
+  git push origin $1 2>&1 || echo -e "${LIGHT_RED}Error while performing git push!"
   RESET_FORMATTING
 }
 
