@@ -90,14 +90,6 @@ conflicts=$(git diff -S "<<<<<<< HEAD" -S "=======" -S ">>>>>>> $(git name-rev -
   echo ""
 }
 
-
-testVariables(){
-  echo "testVariables SAVED_AUTO_COMMIT_MSG: $SAVED_AUTO_COMMIT_MSG"
-  echo "testVariables SAVED_MERGE_INTO_BRANCH: $SAVED_MERGE_INTO_BRANCH"
-  echo "testVariables SAVED_CUR_BRANCH: $SAVED_CUR_BRANCH"
-  echo "testVariables: $SAVED_AUTO_COMMIT_MSG"
-}
-
 ########################################################################
 # Git wrappers                                                         #
 ########################################################################

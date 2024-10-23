@@ -131,6 +131,8 @@ SAVED_CUR_BRANCH=$CUR_BRANCH
 SAVED_AUTO_COMMIT_MSG='$AUTO_COMMIT_MSG'
 " > $commit_state_file
 
+source $commit_state_file
+
 ########################################################################
 # Setup the process of merging
 ########################################################################
