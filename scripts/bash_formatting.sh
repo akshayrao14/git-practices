@@ -19,3 +19,17 @@ LINE_CLR=$(tput cr el) # clears the current line and goes to the beginning
 RESET_FORMATTING() {
 	tput sgr0
 }
+
+export BLACK
+export YELLOW
+export WHITE_BOLD
+export BLUE_UNDL
+export BLUE_ITAL
+export CYAN_BLINK
+export CYAN_BOLD
+export CYAN
+export LIGHT_GREEN
+export LIGHT_RED
+export LOW_INTENSITY_TEXT
+export LOW_INTENSITY_TEXT_DIM
+export LINE_CLR
