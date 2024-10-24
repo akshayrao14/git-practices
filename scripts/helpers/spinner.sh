@@ -39,17 +39,18 @@ run_with_spinner () {
 
 ######  Random SPINNER selection  ########
 no_of_spinners=5
-random_no="$(shuf -i 1-$no_of_spinners -n 1)"
+# spinner_no="$(shuf -i 1-$no_of_spinners -n 1)" ## chooses randomly
+spinner_no=$(($(date +%U) % "$no_of_spinners" + 1)) ## changes spinner once a week
 
-if [ "$random_no" -eq 1 ]; then
+if [ "$spinner_no" -eq 1 ]; then
   random_spinner=('  •     ' '   •    ' '    •   ' '     •  ' '      • ' '     •  ' '    •   ' '   •    ' '  •     ' ' •      ')
-  elif [ "$random_no" -eq 2 ]; then
+  elif [ "$spinner_no" -eq 2 ]; then
     random_spinner=(' ┤ ' ' ┘ ' ' ┴ ' ' └ ' ' ├ ' ' ┌ ' ' ┬ ' ' ┐ ')
-  elif [ "$random_no" -eq 3 ]; then
-    random_spinner=(' ⠋ ' ' ⠙ ' ' ⠹ ' ' ⠸ ' ' ⠼ ' ' ⠴ ' ' ⠦ ' ' ⠧ ' ' ⠇ ' ' ⠏ ')
-  elif [ "$random_no" -eq 4 ]; then
+  elif [ "$spinner_no" -eq 3 ]; then
     random_spinner=('  😑  ' '  😕  ' '  🥺  ' '  🥱  ' '  🤨  ' '  🙄  ' '  😖  ' '  😡  ' '  😤  ' '  🤢  ' '  😱  ' '🖕😖 ' '  😖🖕 ' '🖕🤬🖕' )
     spinner_sleep=0.4
+  elif [ "$spinner_no" -eq 4 ]; then
+    random_spinner=(' ⠋ ' ' ⠙ ' ' ⠹ ' ' ⠸ ' ' ⠼ ' ' ⠴ ' ' ⠦ ' ' ⠧ ' ' ⠇ ' ' ⠏ ')
   else
     random_spinner=('▰▱▱▱▱ ' '▰▰▱▱▱ ' '▰▰▰▱▱ ' '▱▰▰▰▱ ' '▱▱▰▰▰ ' '▱▱▱▰▰ ' '▱▱▱▱▰ ' '▱▱▱▱▱ ')
 fi
