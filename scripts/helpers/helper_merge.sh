@@ -159,8 +159,7 @@ conflicts=$(git diff -S "<<<<<<< HEAD" -S "=======" -S ">>>>>>> $(git name-rev -
   #
   # Pushes the given branch to the origin.
 git_push() {
-  # git push origin "$1" 2>&1 || echo -e "${LIGHT_RED}Error while performing git push!"
-  echo  "FAKE PUSH"
+  git push origin "$1" 2>&1 || echo -e "${LIGHT_RED}Error while performing git push!"
   RESET_FORMATTING
 }
 
