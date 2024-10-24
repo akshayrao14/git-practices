@@ -137,7 +137,7 @@ set_vscode_mergetool(){
   # shellcheck disable=SC2016
   git config --global mergetool.vscode.cmd 'code --wait $MERGED --new-window'
 
-  git config --global mergetool.vscode.keepBackup false
+  # git config --global mergetool.vscode.keepBackup false
 }
 
 
