@@ -68,7 +68,7 @@ update_git_practices(){
   set_git_practices_branch "$script_dir"
 
   # export GIT_PRAC_CUR_BRANCH
-  echo -e "${LOW_INTENSITY_TEXT}Using git-practices branch: $GIT_PRAC_CUR_BRANCH"
+  # echo -e "${LOW_INTENSITY_TEXT}Using git-practices branch: $GIT_PRAC_CUR_BRANCH"
 
   branch_update_list=("main" "beta")
   # loop through branch_update_list and check if the current branch is in the list
