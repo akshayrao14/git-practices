@@ -1,4 +1,7 @@
 #!/bin/bash
+########################################################################
+CUR_VERSION="1.2.2"
+SCRIPT_NAME="merge_into.sh"
 
 script_dir=$(dirname "$0")
 # shellcheck disable=SC1091
@@ -11,9 +14,6 @@ source "$script_dir/helpers/spinner.sh"
 # git checkout my-feature-branch
 # merge_into.sh development
 
-########################################################################
-CUR_VERSION="1.2.1"
-SCRIPT_NAME="merge_into.sh"
 
 ########################################################################
 # Read the argument values
