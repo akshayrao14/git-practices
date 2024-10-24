@@ -290,6 +290,7 @@ if test "$mergetool_name"; then
   if [[ "$retval" == "" ]]
   then
       echo -e "${LIGHT_GREEN}Conflicts resolved!"; RESET_FORMATTING
+      load_saved_commit_state
       post_conflict_resolution      
   else
       run_with_spinner \
