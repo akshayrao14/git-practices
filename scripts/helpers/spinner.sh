@@ -1,6 +1,7 @@
 #!/bin/bash
 
 spinner_pid=
+spinner_sleep=0.1 # in seconds
 
 function start_spinner {
     set +m
@@ -10,7 +11,7 @@ function start_spinner {
 
     finalSpinner=( "${random_spinner[@]}" )
 
-    { while : ; do for X in "${finalSpinner[@]}" ; do echo -en "\b\b\b\b\b\b\b\b$X" ; sleep 0.1 ; done ; done & } 2>/dev/null
+    { while : ; do for X in "${finalSpinner[@]}" ; do echo -en "\b\b\b\b\b\b\b\b$X" ; sleep $spinner_sleep ; done ; done & } 2>/dev/null
     spinner_pid=$!
 }
 
@@ -37,7 +38,7 @@ run_with_spinner () {
 }
 
 ######  Random SPINNER selection  ########
-no_of_spinners=4
+no_of_spinners=5
 random_no="$(shuf -i 1-$no_of_spinners -n 1)"
 
 if [ "$random_no" -eq 1 ]; then
@@ -46,6 +47,9 @@ if [ "$random_no" -eq 1 ]; then
     random_spinner=(' ┤ ' ' ┘ ' ' ┴ ' ' └ ' ' ├ ' ' ┌ ' ' ┬ ' ' ┐ ')
   elif [ "$random_no" -eq 3 ]; then
     random_spinner=(' ⠋ ' ' ⠙ ' ' ⠹ ' ' ⠸ ' ' ⠼ ' ' ⠴ ' ' ⠦ ' ' ⠧ ' ' ⠇ ' ' ⠏ ')
+  elif [ "$random_no" -eq 4 ]; then
+    random_spinner=('  😑  ' '  😕  ' '  🥺  ' '  🥱  ' '  🤨  ' '  🙄  ' '  😖  ' '  😡  ' '  😤  ' '  🤢  ' '  😱  ' '🖕😖 ' '  😖🖕 ' '🖕🤬🖕' )
+    spinner_sleep=0.4
   else
     random_spinner=('▰▱▱▱▱ ' '▰▰▱▱▱ ' '▰▰▰▱▱ ' '▱▰▰▰▱ ' '▱▱▰▰▰ ' '▱▱▱▰▰ ' '▱▱▱▱▰ ' '▱▱▱▱▱ ')
 fi
