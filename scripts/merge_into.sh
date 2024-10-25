@@ -16,7 +16,6 @@ source "$script_dir/helpers/spinner.sh"
 # shellcheck disable=SC1091
 source "$script_dir/helpers/helper_merge_migrations.sh"
 
-
 ########################################################################
 # Read the argument values
 ########################################################################
