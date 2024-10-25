@@ -1,6 +1,9 @@
 #!/bin/bash
 ########################################################################
-CUR_VERSION="1.2.2"
+# git checkout my-feature-branch
+# merge_into.sh development
+########################################################################
+CUR_VERSION="1.2.3"
 SCRIPT_NAME="merge_into.sh"
 
 script_dir=$(dirname "$0")
@@ -10,10 +13,8 @@ source "$script_dir/bash_formatting.sh"
 source "$script_dir/helpers/helper_merge.sh"
 # shellcheck disable=SC1091
 source "$script_dir/helpers/spinner.sh"
-
-# git checkout my-feature-branch
-# merge_into.sh development
-
+# shellcheck disable=SC1091
+source "$script_dir/helpers/helper_merge_migrations.sh"
 
 ########################################################################
 # Read the argument values

@@ -135,9 +135,9 @@ set_vscode_mergetool(){
   git config --global merge.guitool vscode
   git config --global merge.tool vscode
   # shellcheck disable=SC2016
-  git config --global mergetool.vscode.cmd 'code --wait $MERGED --new-window'
-
-  # git config --global mergetool.vscode.keepBackup false
+  git config --global mergetool.vscode.cmd 'code --wait $MERGED'
+  git config --global mergetool.keepBackup false
+  git config --global mergetool.vscode.keepBackup false
 }
 
 
@@ -159,7 +159,11 @@ conflicts=$(git diff -S "<<<<<<< HEAD" -S "=======" -S ">>>>>>> $(git name-rev -
   #
   # Pushes the given branch to the origin.
 git_push() {
-  git push origin "$1" 2>&1 || echo -e "${LIGHT_RED}Error while performing git push!"
+  git push origin "$1" 2>&1 || 
+    (
+      (echo -e "${LIGHT_RED}Error while performing git push!" && RESET_FORMATTING) &&
+      return 1
+    )
   RESET_FORMATTING
 }
 
@@ -169,7 +173,10 @@ git_push() {
 git_pull(){
   if ! git_branch_in_sync_with_remote "$1"
   then
-    git pull origin "$1" 2>&1 || echo -e "${LIGHT_RED}Error while performing git pull!"
+    git pull origin "$1" 2>&1 || (
+      (echo -e "${LIGHT_RED}Error while performing git pull!" && RESET_FORMATTING) &&
+      return 1
+    )
     RESET_FORMATTING
   fi
 }
@@ -202,7 +209,7 @@ git_commit_blank(){
   #
 git_commit_msg(){
   gitCommitOutput=$(git commit -m "$1" 2>&1)
-  commitErrors=$(echo "$gitCommitOutput" | grep problem | grep error | grep warning)
+  commitErrors=$(echo "$gitCommitOutput" | grep error | grep warning | grep fatal)
 
   # if commitErrors is not blank, exit with error
   if [ -n "$commitErrors" ]; then
