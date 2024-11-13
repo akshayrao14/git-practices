@@ -3,7 +3,7 @@
 # git checkout my-feature-branch
 # merge_into.sh development
 ########################################################################
-CUR_VERSION="1.2.3"
+CUR_VERSION="1.2.4"
 SCRIPT_NAME="merge_into.sh"
 
 script_dir=$(dirname "$0")

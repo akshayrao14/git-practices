@@ -10,7 +10,7 @@ source "$(dirname $0)/bash_formatting.sh"
 # reset_branch.sh TARGET --merge-into (will merge your (current) feat branch after resetting
 #                                     before it pushes to origin)
 
-CUR_VERSION="1.0.4"
+CUR_VERSION="1.0.5"
 SCRIPT_NAME="reset_branch.sh"
 
 ####################################################################
