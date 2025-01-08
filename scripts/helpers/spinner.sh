@@ -8,9 +8,9 @@ function start_spinner {
     echo -n "$1         "
     echo ""
     tput civis # cursor invisible
-
+    
     finalSpinner=( "${random_spinner[@]}" )
-
+    
     { while : ; do for X in "${finalSpinner[@]}" ; do echo -en "\b\b\b\b\b\b\b\b$X" ; sleep $spinner_sleep ; done ; done & } 2>/dev/null
     spinner_pid=$!
 }
@@ -27,30 +27,30 @@ function stop_spinner {
 # printing a spinner. Automatically kills the spinner on exit.
 # returns the exit code of $2
 run_with_spinner () {
-  trap stop_spinner EXIT
-  start_spinner "$1"
-
-  ($2 "${@:3}") || { stop_spinner; return 1; }
-
-  stop_spinner
-
-  return 0
+    trap stop_spinner EXIT
+    start_spinner "$1"
+    
+    ($2 "${@:3}") || { stop_spinner; return 1; }
+    
+    stop_spinner
+    
+    return 0
 }
 
 ######  Random SPINNER selection  ########
 no_of_spinners=5
 # spinner_no="$(shuf -i 1-$no_of_spinners -n 1)" ## chooses randomly
-spinner_no=$(($(date +%j) % "$no_of_spinners" + 1)) ## changes spinner once a day
+spinner_no=$(( 10#$(date +%j) % "$no_of_spinners" + 1 )) ## changes spinner once a day
 
 if [ "$spinner_no" -eq 1 ]; then
-  random_spinner=('  •     ' '   •    ' '    •   ' '     •  ' '      • ' '     •  ' '    •   ' '   •    ' '  •     ' ' •      ')
-  elif [ "$spinner_no" -eq 2 ]; then
+    random_spinner=('  •     ' '   •    ' '    •   ' '     •  ' '      • ' '     •  ' '    •   ' '   •    ' '  •     ' ' •      ')
+    elif [ "$spinner_no" -eq 2 ]; then
     random_spinner=(' ┤ ' ' ┘ ' ' ┴ ' ' └ ' ' ├ ' ' ┌ ' ' ┬ ' ' ┐ ')
-  elif [ "$spinner_no" -eq 3 ]; then
+    elif [ "$spinner_no" -eq 3 ]; then
     random_spinner=(' ⠋ ' ' ⠙ ' ' ⠹ ' ' ⠸ ' ' ⠼ ' ' ⠴ ' ' ⠦ ' ' ⠧ ' ' ⠇ ' ' ⠏ ')
-  elif [ "$spinner_no" -eq 4 ]; then
-   random_spinner=('▰▱▱▱▱ ' '▰▰▱▱▱ ' '▰▰▰▱▱ ' '▱▰▰▰▱ ' '▱▱▰▰▰ ' '▱▱▱▰▰ ' '▱▱▱▱▰ ' '▱▱▱▱▱ ')
-  else
-   random_spinner=('  😑  ' '  😕  ' '  🥺  ' '  🥱  ' '  🤨  ' '  🙄  ' '  😖  ' '  😡  ' '  😤  ' '  🤢  ' '  😱  ' '🖕😖 ' '  😖🖕 ' '🖕🤬🖕' )
-   spinner_sleep=0.4    
+    elif [ "$spinner_no" -eq 4 ]; then
+    random_spinner=('▰▱▱▱▱ ' '▰▰▱▱▱ ' '▰▰▰▱▱ ' '▱▰▰▰▱ ' '▱▱▰▰▰ ' '▱▱▱▰▰ ' '▱▱▱▱▰ ' '▱▱▱▱▱ ')
+else
+    random_spinner=('  😑  ' '  😕  ' '  🥺  ' '  🥱  ' '  🤨  ' '  🙄  ' '  😖  ' '  😡  ' '  😤  ' '  🤢  ' '  😱  ' '🖕😖 ' '  😖🖕 ' '🖕🤬🖕' )
+    spinner_sleep=0.4
 fi
