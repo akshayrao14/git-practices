@@ -46,7 +46,7 @@ run_with_spinner() {
 ######  Random SPINNER selection  ########
 no_of_spinners=5
 # spinner_no="$(shuf -i 1-$no_of_spinners -n 1)" ## chooses randomly
-spinner_no=$(($(date +%j) % $no_of_spinners + 1)) ## changes spinner once a day
+spinner_no=$((10#$(date +%j) % $no_of_spinners + 1)) ## changes spinner once a day
 
 if [ "$spinner_no" -eq 1 ]; then
   random_spinner=('  •     ' '   •    ' '    •   ' '     •  ' '      • ' '     •  ' '    •   ' '   •    ' '  •     ' ' •      ')
