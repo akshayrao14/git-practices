@@ -3,7 +3,7 @@
 # git checkout my-feature-branch
 # merge_into.sh development
 ########################################################################
-CUR_VERSION="1.2.3"
+CUR_VERSION="1.3.0"
 SCRIPT_NAME="merge_into.sh"
 
 script_dir=$(dirname "$0")
@@ -49,8 +49,7 @@ case $1 in
             echo -e "${LOW_INTENSITY_TEXT}Please commit and push manually if you're sure."
             wrap_up
         fi
-        
-        sleep 1
+        # sleep 1
         
         post_conflict_resolution
     ;;
@@ -163,7 +162,8 @@ update_git_practices "$script_dir" &
 
 run_with_spinner \
 "${YELLOW}This is a destructive operation (locally). To cancel, press Ctrl+C now..." \
-sleep 5
+# sleep 5
+
 RESET_FORMATTING
 
 run_with_spinner \
@@ -185,7 +185,7 @@ RESET_FORMATTING;
 # Run GIT MERGE
 ########################################################################
 echo -e "${CYAN}Running GIT MERGE $CUR_BRANCH"; RESET_FORMATTING;
-sleep 1
+# sleep 1
 set_git_practices_branch "$script_dir"
 AUTO_COMMIT_MSG="Merge branch '$CUR_BRANCH' into '$MERGE_INTO_BRANCH' via $SCRIPT_NAME (v$CUR_VERSION - $GIT_PRAC_CUR_BRANCH)"
 
@@ -214,7 +214,7 @@ for curLine in "${splitLines[@]}"; do
         textFormatStart="${LINE_CLR}$LOW_INTENSITY_TEXT"
         textFormatEnd="\n"
     fi
-    sleep 0.2
+    # sleep 0.2
     echo -e -n "${textFormatStart} > $curLine${textFormatEnd}"
     
     RESET_FORMATTING
@@ -272,7 +272,7 @@ echo -e "${BLUE_ITAL}A rebase a day, keeps them conflicts away!"; RESET_FORMATTI
 echo ""
 run_with_spinner \
 "${LOW_INTENSITY_TEXT}Checking if you have any git mergetool already setup..." \
-sleep 2
+# sleep 2
 
 ########################################################################
 # if there's no mergetool, ask if to set vscode as mergetool or not
@@ -290,7 +290,7 @@ mergetool_name=$(git config --get merge.tool)
 if test "$mergetool_name"; then
     run_with_spinner \
     "${CYAN}mergetool.name is set to $mergetool_name. Running it now..." \
-    sleep 2
+    # sleep 2
     RESET_FORMATTING
     
     echo -e "${LOW_INTENSITY_TEXT}"
@@ -306,7 +306,7 @@ if test "$mergetool_name"; then
     else
         run_with_spinner \
         "${CYAN}Checking for conflicts..." \
-        sleep 2
+        # sleep 2
         
         echo -e "${LIGHT_RED}Conflicts still detected!"; RESET_FORMATTING
     fi
