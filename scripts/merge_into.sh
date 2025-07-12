@@ -49,7 +49,6 @@ case $1 in
             echo -e "${LOW_INTENSITY_TEXT}Please commit and push manually if you're sure."
             wrap_up
         fi
-        
         # sleep 1
         
         post_conflict_resolution
@@ -164,6 +163,7 @@ update_git_practices "$script_dir" &
 run_with_spinner \
 "${YELLOW}This is a destructive operation (locally). To cancel, press Ctrl+C now..." \
 # sleep 5
+
 RESET_FORMATTING
 
 run_with_spinner \
