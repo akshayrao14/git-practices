@@ -85,10 +85,17 @@ case $MERGE_INTO_BRANCH in
     ;;
     
     *)
-        echo -e "${LIGHT_RED}Invalid target branch: '$MERGE_INTO_BRANCH'"; RESET_FORMATTING
-        echo -e "Only development|demo|develop|staging|stag allowed"
-        echo -e "Try again."
-        wrap_up
+        
+        # if the branch name contains any of development|demo|develop|staging|stag, then it's valid
+        if [[ "$MERGE_INTO_BRANCH" == *"development"* || "$MERGE_INTO_BRANCH" == *"demo"* || "$MERGE_INTO_BRANCH" == *"develop"* || "$MERGE_INTO_BRANCH" == *"staging"* || "$MERGE_INTO_BRANCH" == *"stag"* ]]; then
+            # branch allowed because it contains any of development|demo|develop|staging|stag
+            echo -e "${LIGHT_GREEN}Branch '$MERGE_INTO_BRANCH' is allowed."; RESET_FORMATTING
+        else
+            echo -e "${LIGHT_RED}Invalid target branch: '$MERGE_INTO_BRANCH'"; RESET_FORMATTING
+            echo -e "Only development|demo|develop|staging|stag allowed"
+            echo -e "Try again."
+            wrap_up
+        fi
     ;;
 esac
 
