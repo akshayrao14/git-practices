@@ -125,7 +125,50 @@ def configure_session(session: str) -> Dict[str, str]:
     
     # Save the configuration
     save_config(session, config)
-    print(f"\nConfiguration saved for session: {session}")
+    
+    # Create the box content
+    box_width = 70
+    cmd1 = f"{os.path.basename(__file__)} --session {session} --configure"
+    cmd2 = f"ssm {session}"
+    
+    def print_centered(text, color_code=''):
+        text = text.strip()
+        padding = (box_width - 2 - len(text)) // 2
+        left_pad = ' ' * padding
+        right_pad = ' ' * (box_width - 2 - len(text) - padding)
+        print(f"\033[1;32m║\033[0m{left_pad}{color_code}{text}\033[0m{right_pad}\033[1;32m║\033[0m")
+    
+    def print_left_aligned(text, color_code=''):
+        # Remove ANSI codes for length calculation
+        clean_text = re.sub(r'\x1b\[([0-9A-Za-z;]+)?m', '', text)
+        padding = ' ' * (box_width - 2 - len(clean_text))
+        print(f"\033[1;32m║\033[0m {color_code}{text}\033[0m{padding} \033[1;32m║\033[0m")
+    
+    # Top border
+    print("\n\033[1;32m╔" + "═" * (box_width-2) + "╗\033[0m")
+    
+    # Title line (centered)
+    print_centered("✅ Configuration Saved!")
+    
+    # Session line (centered with color)
+    session_text = f"Session: {session}"
+    print_centered(session_text, '\033[1;36m')
+    
+    # Divider
+    print("\033[1;32m╟" + "─" * (box_width-2) + "╢\033[0m")
+    
+    # Commands section (left-aligned)
+    print_left_aligned("\033[1;33mYou can now start this session using:")
+    # Split cmd1 to add strikethrough to --configure
+    cmd1_base = f"{os.path.basename(__file__)} --session {session}"
+    print_left_aligned(f"  \033[1;37m{cmd1_base} \033[0m\033[9m--configure\033[0m")
+    print_left_aligned("\033[1;33mNote: The strikethrough indicates you don't need --configure next time")
+    print(f"\033[1;32m║{' ' * (box_width-2)}\033[1;32m║")
+    print_left_aligned("\033[1;33mOr with the shell alias:")
+    print_left_aligned(f"  \033[1;37m{cmd2}")
+    
+    # Bottom border
+    print("\033[1;32m╚" + "═" * (box_width-2) + "╝\033[0m")
     return config
 
 def list_sessions() -> None:
@@ -210,4 +253,11 @@ def main():
     start_ssm_session(config)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\033[1;33mOperation cancelled by user. Exiting...\033[0m")
+        sys.exit(130)  # Standard exit code for Ctrl+C
+    except Exception as e:
+        print(f"\n\033[1;31mAn error occurred: {e}\033[0m", file=sys.stderr)
+        sys.exit(1)
