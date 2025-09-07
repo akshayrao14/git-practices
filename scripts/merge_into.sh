@@ -3,7 +3,7 @@
 # git checkout my-feature-branch
 # merge_into.sh development
 ########################################################################
-CUR_VERSION="1.4.0"
+CUR_VERSION="1.5.0"
 SCRIPT_NAME="merge_into.sh"
 
 script_dir=$(dirname "$0")
@@ -40,19 +40,19 @@ case $1 in
         wrap_up
     ;;
     
-  --continue|--resolve)
-
-    echo -e "${LOW_INTENSITY_TEXT}merge_into: $1 flag found. Running post-conflict resolution flow..."; RESET_FORMATTING
-    
-    if ! has_saved_commit_state; then
-        echo -e "${LIGHT_RED}No recent merge_into activity detected. Are you sure about this?"; RESET_FORMATTING
-        echo -e "${LOW_INTENSITY_TEXT}Please commit and push manually if you're sure."
-        wrap_up
-    fi
-
+    --continue|--resolve)
+        
+        echo -e "${LOW_INTENSITY_TEXT}merge_into: $1 flag found. Running post-conflict resolution flow..."; RESET_FORMATTING
+        
+        if ! has_saved_commit_state; then
+            echo -e "${LIGHT_RED}No recent merge_into activity detected. Are you sure about this?"; RESET_FORMATTING
+            echo -e "${LOW_INTENSITY_TEXT}Please commit and push manually if you're sure."
+            wrap_up
+        fi
+        
         # sleep 1
-
-    post_conflict_resolution
+        
+        post_conflict_resolution
     ;;
     *)
         discard_saved_commit_state
@@ -84,8 +84,8 @@ case $MERGE_INTO_BRANCH in
         echo -e "${LIGHT_RED}Not allowed to merge anything into main using this."; RESET_FORMATTING
         wrap_up
     ;;
-
-  *)
+    
+    *)
         # if the branch name contains any of development|demo|develop|staging|stag, then it's valid
         if [[ "$MERGE_INTO_BRANCH" == *"development"* || "$MERGE_INTO_BRANCH" == *"demo"* || "$MERGE_INTO_BRANCH" == *"develop"* || "$MERGE_INTO_BRANCH" == *"staging"* || "$MERGE_INTO_BRANCH" == *"stag"* ]]; then
             # branch allowed because it contains any of development|demo|develop|staging|stag
@@ -168,7 +168,7 @@ RESET_FORMATTING;
 update_git_practices "$script_dir" &
 
 run_with_spinner \
-  "${YELLOW}This is a destructive operation (locally). To cancel, press Ctrl+C now..." \
+"${YELLOW}This is a destructive operation (locally). To cancel, press Ctrl+C now..." \
 # sleep 5
 RESET_FORMATTING
 
@@ -201,29 +201,29 @@ MERGE_NOT_NEEDED=0
 
 IFS=$'\n'; splitLines=("$suppress_git_merge_output"); unset IFS;
 for curLine in "${splitLines[@]}"; do
-
-  if [[ "$curLine" == *"CONFLICT"* ]]; then
-    textFormatStart="${LINE_CLR}${LIGHT_RED}"
-    textFormatEnd="\n"
-  elif [[ "$curLine" == *"merge failed"* ]]; then
-    textFormatStart="${LINE_CLR}${CYAN}"
-    textFormatEnd="\n"
-  elif [[ "$curLine" == *"Auto-merging"* ]]; then
-    textFormatStart="${LINE_CLR}${LIGHT_GREEN}"
-    textFormatEnd="\n"
-  elif [[ "$curLine" == *"Already up to date"* ]]; then
-    MERGE_NOT_NEEDED=1
-    textFormatStart="${LINE_CLR}${LIGHT_GREEN}"
-    textFormatEnd="\n"
-    break
-  else
-    textFormatStart="${LINE_CLR}$LOW_INTENSITY_TEXT"
-    textFormatEnd="\n"
-  fi
+    
+    if [[ "$curLine" == *"CONFLICT"* ]]; then
+        textFormatStart="${LINE_CLR}${LIGHT_RED}"
+        textFormatEnd="\n"
+        elif [[ "$curLine" == *"merge failed"* ]]; then
+        textFormatStart="${LINE_CLR}${CYAN}"
+        textFormatEnd="\n"
+        elif [[ "$curLine" == *"Auto-merging"* ]]; then
+        textFormatStart="${LINE_CLR}${LIGHT_GREEN}"
+        textFormatEnd="\n"
+        elif [[ "$curLine" == *"Already up to date"* ]]; then
+        MERGE_NOT_NEEDED=1
+        textFormatStart="${LINE_CLR}${LIGHT_GREEN}"
+        textFormatEnd="\n"
+        break
+    else
+        textFormatStart="${LINE_CLR}$LOW_INTENSITY_TEXT"
+        textFormatEnd="\n"
+    fi
     # sleep 0.2
-  echo -e -n "${textFormatStart} > $curLine${textFormatEnd}"
-
-  RESET_FORMATTING
+    echo -e -n "${textFormatStart} > $curLine${textFormatEnd}"
+    
+    RESET_FORMATTING
 done
 
 ########################################################################
@@ -277,7 +277,7 @@ echo -e "${LIGHT_RED}~ ~ ~ ~ ~ ~ ~ ~ Conflicts OMG ~ ~ ~ ~ ~ ~ ~ ~ "; RESET_FORM
 echo -e "${BLUE_ITAL}A rebase a day, keeps them conflicts away!"; RESET_FORMATTING
 echo ""
 run_with_spinner \
-  "${LOW_INTENSITY_TEXT}Checking if you have any git mergetool already setup..." \
+"${LOW_INTENSITY_TEXT}Checking if you have any git mergetool already setup..." \
 # sleep 2
 
 ########################################################################
@@ -297,25 +297,25 @@ if test "$mergetool_name"; then
     run_with_spinner \
     "${CYAN}mergetool.name is set to $mergetool_name. Running it now..." \
     # sleep 2
-  RESET_FORMATTING
-
-  echo -e "${LOW_INTENSITY_TEXT}"
-  git mergetool
-  RESET_FORMATTING
-
-  retval=$( has_merge_conflicts )
-  if [[ "$retval" == "" ]]
-  then
-      echo -e "${LIGHT_GREEN}Conflicts resolved!"; RESET_FORMATTING
-      load_saved_commit_state
-      post_conflict_resolution      
-  else
-      run_with_spinner \
+    RESET_FORMATTING
+    
+    echo -e "${LOW_INTENSITY_TEXT}"
+    git mergetool
+    RESET_FORMATTING
+    
+    retval=$( has_merge_conflicts )
+    if [[ "$retval" == "" ]]
+    then
+        echo -e "${LIGHT_GREEN}Conflicts resolved!"; RESET_FORMATTING
+        load_saved_commit_state
+        post_conflict_resolution
+    else
+        run_with_spinner \
         "${CYAN}Checking for conflicts..." \
         # sleep 2
-      
-      echo -e "${LIGHT_RED}Conflicts still detected!"; RESET_FORMATTING
-  fi
+        
+        echo -e "${LIGHT_RED}Conflicts still detected!"; RESET_FORMATTING
+    fi
 fi
 echo -e "\tACTION NEEDED!"
 echo -e "${YELLOW}Please resolve conflicts locally, then run the commands below to continue:"; RESET_FORMATTING
