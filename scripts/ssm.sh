@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Ask for AWS profile (with a sensible default)
+# Ask for AWS profile (with a sensible default).
 read -p "AWS profile (default: bro-tern): " AWS_PROFILE_INPUT
 AWS_PROFILE=${AWS_PROFILE_INPUT:-bro-tern}
 export AWS_PROFILE
