@@ -1,8 +1,26 @@
 #!/bin/bash
 
-# Ask for AWS profile (with a sensible default).
-read -p "AWS profile (default: bro-tern): " AWS_PROFILE_INPUT
-AWS_PROFILE=${AWS_PROFILE_INPUT:-bro-tern}
+# AWS profile must be passed via --profile (no default)
+AWS_PROFILE=""
+
+# Parse optional CLI flags (e.g. --profile rudram-tern)
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --profile|-p)
+      AWS_PROFILE="$2"
+      shift 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+if [ -z "$AWS_PROFILE" ]; then
+  echo -e "\033[0;31mAWS profile not set.\033[0m"
+  echo -e "\033[1;33mpls use --profile and set the aws profile bro\033[0m"
+  exit 1
+fi
+
 export AWS_PROFILE
 
 # Function to start SSM session
@@ -29,11 +47,8 @@ validate_and_parse() {
   local valid_options=("$@")
   local result=()
   
-  # Split by comma or space, preserving IFS
-  local old_IFS=$IFS
-  IFS=', '
-  read -ra PARTS <<< "$input"
-  IFS=$old_IFS
+  # Split by comma or space
+  IFS=', ' read -ra PARTS <<< "$input"
   
   for part in "${PARTS[@]}"; do
     part=$(echo "$part" | xargs) # trim whitespace
