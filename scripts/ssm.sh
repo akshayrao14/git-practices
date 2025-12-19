@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Ask for AWS profile (with a sensible default)
+# Ask for AWS profile (with a sensible default).
 read -p "AWS profile (default: bro-tern): " AWS_PROFILE_INPUT
 AWS_PROFILE=${AWS_PROFILE_INPUT:-bro-tern}
 export AWS_PROFILE
@@ -29,8 +29,11 @@ validate_and_parse() {
   local valid_options=("$@")
   local result=()
   
-  # Split by comma or space
-  IFS=', ' read -ra PARTS <<< "$input"
+  # Split by comma or space, preserving IFS
+  local old_IFS=$IFS
+  IFS=', '
+  read -ra PARTS <<< "$input"
+  IFS=$old_IFS
   
   for part in "${PARTS[@]}"; do
     part=$(echo "$part" | xargs) # trim whitespace
