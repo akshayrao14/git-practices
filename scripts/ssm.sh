@@ -29,8 +29,11 @@ validate_and_parse() {
   local valid_options=("$@")
   local result=()
   
-  # Split by comma or space
-  IFS=', ' read -ra PARTS <<< "$input"
+  # Split by comma or space, preserving IFS
+  local old_IFS=$IFS
+  IFS=', '
+  read -ra PARTS <<< "$input"
+  IFS=$old_IFS
   
   for part in "${PARTS[@]}"; do
     part=$(echo "$part" | xargs) # trim whitespace
