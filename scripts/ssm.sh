@@ -1,28 +1,5 @@
 #!/bin/bash
 
-# AWS profile must be passed via --profile (no default)
-AWS_PROFILE=""
-
-# Parse optional CLI flags (e.g. --profile rudram-tern)
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --profile|-p)
-      AWS_PROFILE="$2"
-      shift 2
-      ;;
-    *)
-      break
-      ;;
-  esac
-done
-if [ -z "$AWS_PROFILE" ]; then
-  echo -e "\033[0;31mAWS profile not set.\033[0m"
-  echo -e "\033[1;33mpls use --profile and set the aws profile bro\033[0m"
-  exit 1
-fi
-
-export AWS_PROFILE
-
 # Function to start SSM session
 start_ssm_session() {
   local env_name=$1
@@ -92,12 +69,26 @@ validate_and_parse() {
 }
 
 run_ssm_flow() {
+  MASTER_MODE=false
+  
+  # Prompt for AWS profile with default
+  read -p $'\033[1;32mEnter AWS profile [rudram-tern]: \033[0m' AWS_PROFILE_INPUT
+  
+  if [ -z "$AWS_PROFILE_INPUT" ]; then
+    AWS_PROFILE="rudram-tern"
+  else
+    AWS_PROFILE="$AWS_PROFILE_INPUT"
+  fi
+  
+  export AWS_PROFILE
+  echo ""
+  
   # Prompt for environment - keep asking until valid input
   while true; do
     echo -e "\033[1;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
     echo -e "\033[1;33mSTEP 1: Environment\033[0m"
     echo -e "\033[1;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-    echo -e "  \033[0;32m• dev\033[0m  \033[0;32m• prod\033[0m  \033[0;33mExamples:\033[0m \033[0;37mdev\033[0m | \033[0;37mdev,prod\033[0m"
+    echo -e "  \033[0;32m• dev\033[0m  \033[0;32m• prod\033[0m  \033[0;32m• master\033[0m  \033[0;33mExamples:\033[0m \033[0;37mdev\033[0m | \033[0;37mdev,prod\033[0m | \033[0;37mmaster\033[0m"
     echo ""
     read -p $'\033[1;32mEnter: \033[0m' ENV_INPUT
     
@@ -106,9 +97,18 @@ run_ssm_flow() {
       continue
     fi
     
+    # Check for master mode - opens all sessions
+    if [ "$ENV_INPUT" == "master" ]; then
+      MASTER_MODE=true
+      ENVS=("dev" "prod")
+      CLIENTS=("ehs" "try" "medcare")
+      echo ""
+      break
+    fi
+    
     ENVS_STR=$(validate_and_parse "$ENV_INPUT" "dev" "prod")
     if [ $? -ne 0 ]; then
-      echo -e "\033[0;31mInvalid! Use: \033[0;33mdev\033[0m, \033[0;33mprod\033[0m, or \033[0;33mdev,prod\033[0m. \033[1;31mTry again BOSS.\033[0m"
+      echo -e "\033[0;31mInvalid! Use: \033[0;33mdev\033[0m, \033[0;33mprod\033[0m, \033[0;33mmaster\033[0m, or \033[0;33mdev,prod\033[0m. \033[1;31mTry again BOSS.\033[0m"
       continue
     fi
     
@@ -117,30 +117,33 @@ run_ssm_flow() {
     break
   done
 
-  # Prompt for client name - keep asking until valid input
-  while true; do
-    echo -e "\033[1;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-    echo -e "\033[1;33mSTEP 2: Client\033[0m"
-    echo -e "\033[1;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-    echo -e "  \033[0;32m• ehs\033[0m  \033[0;32m• try\033[0m  \033[0;32m• medcare\033[0m  \033[0;33mExamples:\033[0m \033[0;37mehs\033[0m | \033[0;37mehs,try\033[0m | \033[0;37mehs,try,medcare\033[0m"
-    echo ""
-    read -p $'\033[1;32mEnter: \033[0m' CLIENT_INPUT
-    
-    if [ -z "$CLIENT_INPUT" ]; then
-      echo -e "\033[0;31mCannot be empty. \033[1;31mTry again BOSS.\033[0m"
-      continue
-    fi
-    
-    CLIENTS_STR=$(validate_and_parse "$CLIENT_INPUT" "ehs" "try" "medcare")
-    if [ $? -ne 0 ]; then
-      echo -e "\033[0;31mInvalid! Use: \033[0;33mehs\033[0m, \033[0;33mtry\033[0m, \033[0;33mmedcare\033[0m, or comma-separated like \033[0;33mehs,try\033[0m. \033[1;31mTry again BOSS.\033[0m"
-      continue
-    fi
-    
-    read -ra CLIENTS <<< "$CLIENTS_STR"
-    echo ""
-    break
-  done
+  # Skip client prompt if master mode was selected
+  if [ "$MASTER_MODE" == false ]; then
+    # Prompt for client name - keep asking until valid input
+    while true; do
+      echo -e "\033[1;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+      echo -e "\033[1;33mSTEP 2: Client\033[0m"
+      echo -e "\033[1;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+      echo -e "  \033[0;32m• ehs\033[0m  \033[0;32m• try\033[0m  \033[0;32m• medcare\033[0m  \033[0;33mExamples:\033[0m \033[0;37mehs\033[0m | \033[0;37mehs,try\033[0m | \033[0;37mehs,try,medcare\033[0m"
+      echo ""
+      read -p $'\033[1;32mEnter: \033[0m' CLIENT_INPUT
+      
+      if [ -z "$CLIENT_INPUT" ]; then
+        echo -e "\033[0;31mCannot be empty. \033[1;31mTry again BOSS.\033[0m"
+        continue
+      fi
+      
+      CLIENTS_STR=$(validate_and_parse "$CLIENT_INPUT" "ehs" "try" "medcare")
+      if [ $? -ne 0 ]; then
+        echo -e "\033[0;31mInvalid! Use: \033[0;33mehs\033[0m, \033[0;33mtry\033[0m, \033[0;33mmedcare\033[0m, or comma-separated like \033[0;33mehs,try\033[0m. \033[1;31mTry again BOSS.\033[0m"
+        continue
+      fi
+      
+      read -ra CLIENTS <<< "$CLIENTS_STR"
+      echo ""
+      break
+    done
+  fi
 
   # Show what will start
   echo -e "\033[1;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
