@@ -190,7 +190,7 @@ def list_sessions() -> None:
     for session in config.sections():
         print(f"- {session}")
 
-def start_ssm_session(config: Dict[str, str]) -> None:
+def start_ssm_session(config: Dict[str, str], debug: bool = False) -> None:
     """Start an SSM session with the given configuration."""
     print(f"\nStarting SSM session...")
     print(f"Instance: {config['target_instance']}")
@@ -207,6 +207,10 @@ def start_ssm_session(config: Dict[str, str]) -> None:
         f"host={config['host']},portNumber={config['port']},localPortNumber={config['local_port']}",
         "--region", config["region"]
     ]
+
+    if debug:
+        cmd.append("--debug")
+        print(f"DEBUG: Running command: {' '.join(cmd)}")
     
     try:
         subprocess.run(cmd, check=True)
@@ -222,8 +226,10 @@ def parse_arguments():
     parser.add_argument('-s', '--session', help='Session/profile name to use')
     parser.add_argument('-c', '--configure', action='store_true', 
                       help='Configure a new session')
-    parser.add_argument('-l', '--list-sessions', action='store_true',
+    parser.add_argument('-l', '--list-sessions', '--list', action='store_true',
                       help='List all configured sessions')
+    parser.add_argument('-d', '--debug', action='store_true',
+                      help='Enable debug output')
     return parser.parse_args()
 
 def main():
@@ -251,7 +257,7 @@ def main():
             sys.exit(1)
     
     # Start the SSM session
-    start_ssm_session(config)
+    start_ssm_session(config, args.debug)
 
 if __name__ == "__main__":
     try:

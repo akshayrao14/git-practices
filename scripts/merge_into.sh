@@ -133,7 +133,7 @@ load_saved_commit_state
 
 ## Check if the current branch is in sync with its remote origin
 run_with_spinner \
-"${LOW_INTENSITY_TEXT}Fetching info from remote '$CUR_BRANCH' branch..." \
+"Fetching info from remote '$CUR_BRANCH' branch..." \
 git_fetch_prune
 
 if ! git_branch_in_sync_with_remote "$CUR_BRANCH"
