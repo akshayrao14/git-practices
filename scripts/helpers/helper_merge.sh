@@ -56,34 +56,113 @@ wrap_up(){
 # Get the latest git-practices code first                              #
 ########################################################################
 
-# Maintaining the merge_into script: take auto pull from repo - best effort
-update_git_practices(){
-    cur_pwd=$(pwd)
-    script_dir=$1
+# Show formatted changelog between two commits
+show_changelog() {
+    local old_ref=$1
+    local new_ref=$2
     
-    cd "$script_dir" || (echo -e "${LIGHT_RED}Unable to find the script directory!")
-    cd ..
-    
-    git_fetch_prune
-    set_git_practices_branch "$script_dir"
-    
-    # export GIT_PRAC_CUR_BRANCH
-    # echo -e "${LOW_INTENSITY_TEXT}Using git-practices branch: $GIT_PRAC_CUR_BRANCH"
-    
-    branch_update_list=("main" "beta")
-    # loop through branch_update_list and check if the current branch is in the list
-    for branch in "${branch_update_list[@]}"; do
-        if [[ "$GIT_PRAC_CUR_BRANCH" == "$branch" ]]; then
-            # Pull latest changes into branch
-            git_pull "$GIT_PRAC_CUR_BRANCH"
+    echo -e "\n${CYAN}=== Changelog ===${RESET_FORMATTING}"
+    git log --pretty=format:"%h - %s (by %an, %ar)" --abbrev-commit "$old_ref..$new_ref" 2>/dev/null | \
+    while IFS= read -r line; do
+        # Format different types of commits
+        if [[ $line == *"Merge:"* ]]; then
+            echo -e "${LOW_INTENSITY_TEXT}$line${RESET_FORMATTING}"
+        elif [[ $line == *"fix:"* || $line == *"fix("* ]]; then
+            echo -e "${LIGHT_RED}✓ $line${RESET_FORMATTING}"
+        elif [[ $line == *"feat:"* || $line == *"feat("* ]]; then
+            echo -e "${LIGHT_GREEN}✓ $line${RESET_FORMATTING}"
+        elif [[ $line == *"refactor:"* || $line == *"refactor("* ]]; then
+            echo -e "${LIGHT_BLUE}↻ $line${RESET_FORMATTING}"
+        elif [[ $line == *"docs:"* || $line == *"docs("* ]]; then
+            echo -e "${LIGHT_CYAN}✎ $line${RESET_FORMATTING}"
         else
-            # Pull latest changes into branch without git checkout
-            git fetch origin "$branch":"$branch" 2>&1 || echo -e "${LIGHT_RED}ERROR: Failed to fetch branch from origin: $branch"
-            RESET_FORMATTING
+            echo -e "• $line"
         fi
     done
-    RESET_FORMATTING
-    cd "$cur_pwd" || exit
+    echo -e "${CYAN}=================${RESET_FORMATTING}\n"
+}
+
+# Update git-practices repository with better error handling and reliability
+update_git_practices() {
+    local cur_pwd script_dir current_branch
+    local -i status=0
+    
+    # Store current directory
+    cur_pwd=$(pwd)
+    script_dir="$1"
+    
+    # Change to git-practices root directory
+    if ! cd "$script_dir/.." 2>/dev/null; then
+        echo -e "${LIGHT_RED}Error: Could not access git-practices directory${RESET_FORMATTING}" >&2
+        return 1
+    fi
+    
+    # Get current branch and current commit
+    current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+    local current_commit
+    current_commit=$(git rev-parse HEAD 2>/dev/null)
+    
+    if [[ -z "$current_branch" || -z "$current_commit" ]]; then
+        echo -e "${LIGHT_RED}Error: Could not determine current branch or commit${RESET_FORMATTING}" >&2
+        cd "$cur_pwd" || true
+        return 1
+    fi
+    
+    # Fetch and prune remote branches
+    if ! git_fetch_prune; then
+        echo -e "${LIGHT_RED}Warning: Failed to fetch from remote${RESET_FORMATTING}" >&2
+        status=1
+    fi
+    
+    # Define branches to update
+    local -a branch_update_list=("main" "beta")
+    local branch updated=0
+    
+    # Update each branch
+    for branch in "${branch_update_list[@]}"; do
+        if [[ "$current_branch" == "$branch" ]]; then
+            # For current branch, do a proper pull
+            echo -e "${LOW_INTENSITY_TEXT}Updating current branch: $branch${RESET_FORMATTING}"
+            
+            # Get the remote commit before pulling
+            local remote_commit
+            remote_commit=$(git rev-parse "origin/$branch" 2>/dev/null)
+            
+            if ! git_pull "$branch"; then
+                echo -e "${LIGHT_RED}Warning: Failed to pull branch $branch${RESET_FORMATTING}" >&2
+                status=1
+            else
+                # Check if we actually got new commits
+                local new_commit
+                new_commit=$(git rev-parse HEAD 2>/dev/null)
+                if [[ "$current_commit" != "$new_commit" && "$new_commit" == "$remote_commit" ]]; then
+                    updated=1
+                    echo -e "${LIGHT_GREEN}✓ Successfully updated $branch to latest version${RESET_FORMATTING}"
+                    show_changelog "$current_commit" "$new_commit"
+                fi
+            fi
+        else
+            # For other branches, do a fetch without checkout
+            echo -e "${LOW_INTENSITY_TEXT}Updating remote branch: $branch${RESET_FORMATTING}"
+            if ! git fetch -q origin "$branch:$branch" 2>/dev/null; then
+                echo -e "${LIGHT_RED}Warning: Failed to fetch branch: $branch${RESET_FORMATTING}" >&2
+                status=1
+            fi
+        fi
+    done
+    
+    # If we didn't update but are behind, show what's new
+    if [[ $updated -eq 0 && -n "$remote_commit" && "$current_commit" != "$remote_commit" ]]; then
+        echo -e "${YELLOW}New updates are available. Run 'git pull' to update.${RESET_FORMATTING}"
+        echo -e "${LOW_INTENSITY_TEXT}Changes since your current version:${RESET_FORMATTING}"
+        show_changelog "$current_commit" "$remote_commit"
+    fi
+    
+    # Return to original directory
+    cd "$cur_pwd" 2>/dev/null || true
+    
+    # Return status (0 = success, 1 = partial/failure)
+    return $status
 }
 
 set_git_practices_branch(){
