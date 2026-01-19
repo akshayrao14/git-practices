@@ -12,7 +12,7 @@ else
     BASE_BRANCH=$requested_base_branch
 fi
 
-REPO_NAME=$(basename `git rev-parse --show-toplevel`)
+REPO_NAME=$(gh repo view --json name -q ".name" || basename `git rev-parse --show-toplevel`)
 CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 PR_URL="https://github.com/TernTechnologies/$REPO_NAME/pull/new/$BASE_BRANCH...$CUR_BRANCH"
 echo "Branch: $CUR_BRANCH of repo: $REPO_NAME (base: $BASE_BRANCH)"
