@@ -159,6 +159,7 @@ run_ssm_flow() {
         prod-medcare) SESSION_NAMES+=("prod-medcare") ;;
         dev-try) SESSION_NAMES+=("dev-try") ;;
         dev-medcare) SESSION_NAMES+=("dev-medcare") ;;
+        dev-laasp) SESSION_NAMES+=("dev-laasp") ;;
         prod-laasp) SESSION_NAMES+=("prod-laasp") ;;
       esac
     done
@@ -213,6 +214,10 @@ run_ssm_flow() {
         dev-medcare)
           start_ssm_session "dev-medcare" "me-central-1" "i-0ce709700d5c49acd" \
             "dev-medcare-rds-1.cvk8uawkw8t3.me-central-1.rds.amazonaws.com" "5432" "5430"
+          ;;
+        dev-laasp)
+          start_ssm_session "dev-laasp" "eu-west-1" "i-0fedbd9e980a095c2" \
+            "development-liverpool-rds.cdwtre6gztbt.eu-west-1.rds.amazonaws.com" "5432" "5432"
           ;;
         prod-laasp)
           start_ssm_session "prod-laasp" "eu-west-2" "i-0dff9bf5ad5b24286" \
