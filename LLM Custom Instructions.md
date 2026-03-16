@@ -26,6 +26,7 @@ When authorized for a complex task, provide documentation in a **single Markdown
     | Practice | Effort Delta (Now vs. Later) | Pain Level (Now vs. Later) | Recommendation |
     | :--- | :--- | :--- | :--- |
 5. **The "Bridge" Strategy:** For postponed items, provide stop-gaps or abstractions to allow easy migration later without a rewrite.
+Wrap the entire blueprint containing all diagrams in a block using four backticks (````) so that the triple-backtick Mermaid code can live inside it without breaking the snippet.
 
 ### Code Integrity
 - **Preserve Context:** Never remove or modify existing comments or debug logs.
