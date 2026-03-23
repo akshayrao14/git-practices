@@ -1,0 +1,140 @@
+#!/bin/bash
+
+if command -v starship &>/dev/null; then
+    eval "$(starship init bash)"
+fi
+
+## ---- MAKE YOUR CHANGES HERE ---- ##
+export AWS_PROFILE=
+PATH=$PATH:/usr/local/bin:/home/raosa/tern-work/git-practices/scripts
+## ---- END OF CHANGES ---- ##
+
+# Current git branch
+cgb() {
+    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/'
+}
+
+sanitize_folder_name() {
+    local folder_name="$1"
+    
+    # Convert to lowercase (optional, depending on your preference)
+    folder_name=$(echo "$folder_name" | tr '[:upper:]' '[:lower:]')
+    
+    # Replace any non-alphanumeric characters (except hyphens and underscores) with underscores
+    folder_name=$(echo "$folder_name" | sed -E 's/[^a-z0-9_-]+/_/g')
+    
+    # Ensure the folder name doesn't start with a period or hyphen
+    if [[ "$folder_name" =~ ^[.-] ]]; then
+        folder_name="folder_$folder_name"
+    fi
+    
+    # Trim leading and trailing underscores
+    folder_name=$(echo "$folder_name" | sed -E 's/^_+|_+$//g')
+    
+    # Limit folder name length (most filesystems have a limit)
+    folder_name=$(echo "$folder_name" | cut -c1-255)
+    
+    echo "$folder_name"
+}
+
+goToMainWorktree() {
+    cd $(git worktree list --porcelain | head -n 1 | awk '{print $2}')
+}
+
+createAndGoToNewWorktree() {
+    branch_name="$1"
+    repo_name="$(git rev-parse --show-toplevel | xargs basename)"
+    
+    wt_base="../worktrees"
+    wt_repo_dir="$wt_base/$repo_name"
+    folder_name=$(sanitize_folder_name "$branch_name")
+    repo_path="$wt_repo_dir/$folder_name"
+    mkdir -p "$wt_base"
+    mkdir -p "$wt_repo_dir"
+    git worktree add "$repo_path" -b "$branch_name"
+    cd "$repo_path"
+    # npm install
+}
+
+if [ -x /usr/bin/git ]; then
+    source ~/git-completion.bash
+fi
+
+RESET_FORMATTING() {
+    tput sgr0
+}
+
+#############################################################
+## GIT OVERRIDES                                           ##
+#############################################################
+# alias gnewt='echo -e "Creating $(tput setaf 3)new worktree from pre-release" && RESET_FORMATTING && goToMainWorktree && gcopr && gplo && createAndGoToNewWorktree' # do not add anything after this. It uses $1 internally
+alias gnew='echo -e "Creating $(tput setaf 3)new branch from pre-release" && RESET_FORMATTING && gcopr && gplo && gco -b'
+alias gco='git checkout'
+
+alias gs='echo -e "Running $(tput setaf 3)git status" && RESET_FORMATTING && git status'
+alias gd='echo -e "Running $(tput setaf 3)git difftool -y" && RESET_FORMATTING && git difftool -y'
+alias df=gd
+alias sd=gs
+
+alias grest='echo -e "Restoring staged $(tput setaf 3)git restore --staged ." && RESET_FORMATTING && git restore --staged .'
+
+alias gadd='echo -e "Running $(tput setaf 3)git add -u" && RESET_FORMATTING && git add -u'
+
+alias gcmr='echo -e "Running $(tput setaf 3)git commit -m \"[Rao]" && RESET_FORMATTING && git commit -m "[Rao]'
+alias gcmm='echo -e "Running $(tput setaf 3)git commit -m ''" && RESET_FORMATTING && git commit -m ""'
+
+alias gplo='echo -e "Running $(tput setaf 3)git pull origin $(cgb)" && RESET_FORMATTING && git pull origin $(cgb)'
+alias gpso='echo -e "Running $(tput setaf 3)git push origin $(cgb)" && RESET_FORMATTING && git push origin $(cgb)'
+
+alias gpsom='echo -e "Running $(tput setaf 3)git push origin $(cgb) && merge_into.sh" && RESET_FORMATTING && git push origin $(cgb) && merge_into.sh'
+
+alias gpp='echo -e "Running $(tput setaf 3)git checkout -" && RESET_FORMATTING && git checkout -'
+alias gcopr='echo -e "Running $(tput setaf 3)git checkout pre-release" && RESET_FORMATTING && git checkout pre-release'
+alias gcom='echo -e "Running $(tput setaf 3)git checkout main" && RESET_FORMATTING && git checkout main'
+
+alias gmpr='echo -e "Running $(tput setaf 3)git merge pre-release" && RESET_FORMATTING && git merge pre-release'
+alias gmm='echo -e "Running $(tput setaf 3)git merge main" && RESET_FORMATTING && git merge main'
+
+alias gdel='echo -e "Running $(tput setaf 3)git branch -D <branch>" && RESET_FORMATTING && git branch -D '
+
+alias sso='echo -e "Running aws sso login --profile ${AWS_PROFILE}" && aws sso login --profile ${AWS_PROFILE}'
+alias ssoLogin=sso
+alias ssoLogout='echo -e "Running aws sso logout --profile ${AWS_PROFILE}" && aws sso logout --profile ${AWS_PROFILE}'
+
+alias ssm='echo -e "Running ssm_login.py --session <session-name>" && ssm_login.py --session '
+alias ssmlist='echo -e "Running ssm_login.py --list" && ssm_login.py --list'
+
+alias midev='echo -e "Running $(tput setaf 3)merge_into.sh development" && RESET_FORMATTING && merge_into.sh development'
+alias midemo='echo -e "Running $(tput setaf 3)merge_into.sh demo" && RESET_FORMATTING && merge_into.sh demo'
+
+alias wd=windsurf
+
+alias sz='echo -e "Running $(tput setaf 3)du -sh .[!.]* * 2>/dev/null | sort -hr | less" && RESET_FORMATTING && du -sh .[!.]* * 2>/dev/null | sort -hr | less'
+
+# Create function that takes the commit message as a string argument 
+# and performs git add -u only if there are no untracked files
+# commits the changes with the given commit message
+# and pushes the changes to the remote repository
+# If one step fails, it will not proceed to the next step
+commit_and_push() {
+    local commit_message="$1"
+    
+    # Check if there are untracked files
+    if git ls-files --others --exclude-standard | read -r; then
+        echo "Error: There are untracked files. Please add them to the staging area before committing."
+        return 1
+    fi
+    
+    # Add all changes
+    gadd && git commit -m "[Rao] $commit_message" && gplo --rebase && gpso
+}
+
+# alias for commit_and_push
+alias gcap='echo -e "Running $(tput setaf 3)commit_and_push" && RESET_FORMATTING && commit_and_push'
+
+# Create diff file for consumption by AI
+alias prdiff='echo -e "Running $(tput setaf 3)git diff origin/pre-release...HEAD > $(cgb).diff" && RESET_FORMATTING && git diff origin/pre-release...HEAD > $(cgb).diff && echo "$(cgb).diff created"'
+
+alias ag='echo -e "Running $(tput setaf 3)antigravity -r" && RESET_FORMATTING && antigravity -r'
+
+alias full_diff='echo -e "Running $(tput setaf 3)git diff --no-ext-diff pre-release > full_diff.txt" && RESET_FORMATTING && git diff --no-ext-diff pre-release > full_diff.txt && echo "full_diff.txt created"'
