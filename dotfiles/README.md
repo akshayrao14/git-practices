@@ -1,11 +1,11 @@
-# rao_bashrc_overrides
+# bashrc.overrides
 
 A personal Bash configuration layer — opinionated Git shortcuts, worktree helpers, AWS SSM/SSO aliases, and a few general-purpose utilities.
 
 Source this file from your `.bashrc` or `.bash_profile`:
 
 ```bash
-source ~/rao_bashrc_overrides
+source ~/bashrc.overrides
 ```
 
 ---
