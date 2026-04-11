@@ -71,13 +71,12 @@ validate_and_parse() {
 run_ssm_flow() {
   MASTER_MODE=false
   
-  # Prompt for AWS profile with default
-  read -p $'\033[1;32mEnter AWS profile [rudram-tern]: \033[0m' AWS_PROFILE_INPUT
-  
-  if [ -z "$AWS_PROFILE_INPUT" ]; then
-    AWS_PROFILE="rudram-tern"
-  else
-    AWS_PROFILE="$AWS_PROFILE_INPUT"
+  if [ -z "$AWS_PROFILE" ]; then
+    read -p $'\033[1;32mEnter AWS profile: \033[0m' AWS_PROFILE
+    if [ -z "$AWS_PROFILE" ]; then
+      echo -e "\033[0;31mCannot be empty. \033[1;31mTry again BOSS.\033[0m"
+      return 1
+    fi
   fi
   
   export AWS_PROFILE
