@@ -20,13 +20,56 @@ Full behavior spec is in [`SKILL.md`](./SKILL.md).
 
 ## v2.1 changes
 
-This version replaces the earlier "guess if it's reachable" workflow with a more defensive, high-integrity pipeline:
+This version replaces the earlier "guess if it's reachable" workflow with a more defensive, high-integrity pipeline, and adds an opt-in Fast-Track mode for low-risk bumps:
 
+- **Two modes — Standard and Fast-Track.** Standard is the full defensive workflow; Fast-Track is a velocity-optimized shortcut for dev-dependency or low-CVSS bumps. Lockfile integrity is non-negotiable in both modes.
 - **Exposure Mapping** replaces heuristic reachability. Stop trying to prove a vuln is unreachable; categorize import sites and let the user make the risk call from the surface area.
 - **Defensive minimal-patched versioning** — smaller change surface, lower chance the bump itself breaks something. Latest-in-major is now opt-in.
 - **Mandatory lockfile parity check** between `package-lock.json` and `pnpm-lock.yaml`. Required because CI/CD runs npm but local sanity checks run pnpm — drift between the two is the exact class of bug this skill exists to prevent.
-- **Changelog scrape with safety interlock.** No bump is applied without surfacing breaking-change flags first and getting explicit user confirmation.
+- **Changelog scrape with safety interlock** (Standard mode). No bump is applied without surfacing breaking-change flags first and getting explicit user confirmation.
+- **Auto-reversion** — if Fast-Track hits a parity failure or a build/test/hook failure, the skill offers to re-run the same package in Standard mode for deeper analysis instead of retrying blindly.
 - **Org-level fan-out is opt-in only.** Even if the user pastes an org URL, the skill confirms before paginating across the entire org (avoids API rate-limit burn and non-JS noise).
+
+## Fast-Track mode
+
+For low-risk bumps where the full Standard pipeline (exposure enumeration + changelog scrape + double-confirmation interlock) is overkill.
+
+### When Fast-Track is offered
+
+Any one of:
+
+- The dominant Exposure category is **Internal/Dev** (configs, scripts, tests, tooling) with no `Public/API` import sites.
+- **CVSS < 7.0** AND no `Public/API` import sites.
+- The user explicitly asks: `"fast-track"`, `"just bump it"`, `"skip the changelog"`.
+
+If none apply, the skill defaults to Standard.
+
+### When Fast-Track is refused
+
+Even if the user asks for it, the skill falls back to Standard when:
+
+- The package has any `Public/API` import sites AND CVSS ≥ 7.0.
+- The advisory severity is `critical`.
+- A cross-major bump would be required.
+
+### Speed/risk trade-off
+
+| Step | Standard | Fast-Track |
+|---|---|---|
+| Exposure Mapping (per-site enumeration) | Full listing | Single-line dominant category only |
+| Changelog scrape | Yes (BREAKING / DEPRECATED / MIGRATION flagged) | **Skipped** |
+| Safety interlock | Up to two confirmations | One confirmation |
+| Defensive minimal-patched version | Yes | Yes |
+| **Dual-write override** | **Yes** | **Yes** |
+| **Both-lockfile regeneration** | **Yes** | **Yes** |
+| **Parity check + abort on mismatch** | **Yes** | **Yes** |
+| Commit + push gated on user OK | Yes | Yes |
+
+The bottom block — dual-write, regeneration, parity check — is non-negotiable. We never sacrifice environment parity for speed; environment drift between dev (pnpm) and CI (npm) is the bug class this skill exists to prevent.
+
+### Auto-reversion on failure
+
+If a Fast-Track bump fails the parity check, breaks the build, or fails a pre-commit hook, the skill offers to switch the same package back to Standard mode rather than retry blindly. Repeated Fast-Track retries on a failing bump is exactly the trap the mode is designed to avoid.
 
 ## Exposure Mapping categories
 

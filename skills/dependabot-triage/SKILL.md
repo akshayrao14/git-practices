@@ -1,16 +1,18 @@
 ---
 name: dependabot-triage
-description: Triage and fix Dependabot vulnerability alerts in JavaScript/TypeScript repos (Node.js services AND browser frontends). v2.1 workflow — defensive minimal-patched versioning, exposure mapping (Public/API · Client-Bundle · Internal/Dev), mandatory lockfile parity check between npm and pnpm, changelog scrape with BREAKING/DEPRECATED/MIGRATION flagging, and safety interlock before applying bumps. Covers npm, pnpm, yarn, bun lockfiles. Use when the user shares a Dependabot URL, asks to fix CVEs, or asks which vulnerability to pick first.
+description: Triage and fix Dependabot vulnerability alerts in JavaScript/TypeScript repos (Node.js services AND browser frontends). v2.1 workflow with Standard (defensive) and Fast-Track (low-risk) modes — defensive minimal-patched versioning, exposure mapping (Public/API · Client-Bundle · Internal/Dev), mandatory lockfile parity check between npm and pnpm, changelog scrape with BREAKING/DEPRECATED/MIGRATION flagging, and safety interlock before applying bumps. Fast-Track mode skips changelog + detailed exposure for Internal/Dev or CVSS<7 alerts, but parity check + dual-write are non-negotiable. Covers npm, pnpm, yarn, bun lockfiles. Use when the user shares a Dependabot URL, asks to fix CVEs, or asks which vulnerability to pick first.
 ---
 
 # Dependabot Triage & Fix (v2.1)
 
 ## v2.1 highlights
 
+- **Two modes — Standard and Fast-Track.** Standard is the defensive workflow (full exposure mapping, changelog scrape, safety interlock). Fast-Track is for low-risk bumps (Internal/Dev category, CVSS < 7, or user opt-in) — skips changelog + detailed exposure enumeration, single-confirmation interlock. Parity check + dual-write are non-negotiable in BOTH modes.
 - **Defensive versioning** — pick the *minimal* patched version that fixes all in-cluster CVEs, not "latest in same major".
 - **Exposure Mapping** replaces heuristic reachability — categorize every import site (Public/API · Client-Bundle · Internal/Dev) and present surface area to the user instead of trying to prove unreachability.
 - **Mandatory lockfile parity check** — `package-lock.json` and `pnpm-lock.yaml` must resolve to the *same* version of the target package; mismatch aborts the PR. Required because CI/CD runs npm while local sanity checks run pnpm.
-- **Changelog scrape with safety interlock** — fetch release notes / CHANGELOG between current and target, flag `BREAKING` / `DEPRECATED` / `MIGRATION` keywords, pause for explicit user confirmation before applying the bump.
+- **Changelog scrape with safety interlock** (Standard mode) — fetch release notes / CHANGELOG between current and target, flag `BREAKING` / `DEPRECATED` / `MIGRATION` keywords, pause for explicit user confirmation before applying the bump.
+- **Auto-reversion** — if Fast-Track fails parity or the build fails post-bump, the skill offers to switch back to Standard mode for deeper analysis instead of grinding on retries.
 - **Org-level fan-out is opt-in only** — never auto-trigger; org enumeration burns API rate limit and surfaces non-JS noise.
 
 ## Scope
@@ -62,31 +64,121 @@ Provide one of:
 
 ## What Claude will do (v2.1 workflow)
 
+```
+Fetch + Rank   →   Mode Selection   →   { Standard | Fast-Track }   →   Apply + Parity Check   →   PR
+```
+
+The early steps (1–3) are the same in both modes. The middle steps branch by mode. The closing steps (regen + parity + PR) are identical and non-negotiable.
+
 1. **Fetch alerts**:
    - Repo URL → `gh api "repos/<org>/<repo>/dependabot/alerts?state=open&per_page=100"`
    - Org URL → only after explicit user confirmation, then `gh api "orgs/<org>/dependabot/alerts?state=open&per_page=100"` (paginates across every repo).
    - Filter `.dependency.package.ecosystem == "npm"` for this skill; surface non-JS alerts as out-of-scope.
    - Dedupe by `(repo, package)`.
 2. **Rank** using the prioritization framework (Impact × Exposure × CVSS).
-3. **Read advisory** for the top pick — extract `first_patched_version` and `vulnerable_version_range`. For clusters, compute the *minimal* version that supersets every CVE patch.
-4. **Exposure Mapping** — locate every import site of the target package in source, classify each into Public/API · Client-Bundle · Internal/Dev (see "Exposure Mapping" section). Output counts + sample paths.
-5. **Changelog scrape** — fetch release notes / `CHANGELOG.md` between currently-installed and target version. Grep for `BREAKING`, `DEPRECATED`, `MIGRATION`, `removed`, `dropped support`. Surface flagged lines verbatim.
-6. **Safety interlock — PAUSE.** Print the exposure summary + changelog flags + chosen target version to the user. Wait for explicit OK ("yes", "go", "looks fine", etc) before any file edits. If `BREAKING`/`DEPRECATED`/`MIGRATION` was flagged, require a second affirmative.
-7. **Confirm branching strategy AND base branch.** Detect default branch via `gh repo view --json defaultBranchRef`; never hardcode `main`. Default: one PR per package off latest `origin/<detected-base>`.
-8. **Edit `package.json`** — dual-write both `pnpm.overrides` AND top-level `overrides` (mandatory; see "Override pattern").
-9. **Regenerate BOTH lockfiles** — `pnpm install --no-frozen-lockfile` AND `npm install --package-lock-only`. No "primary" lockfile; both must be regenerated.
-10. **Parity check** — read both lockfiles and assert they resolved to the *same* version of the target package. Mismatch → abort PR (see "Verify (Parity Check)").
-11. **Commit on the branch and open a PR** — with explicit user OK before pushing.
+3. **Read advisory** for the top pick — extract `first_patched_version`, `vulnerable_version_range`, and `cvss.score`. For clusters, compute the *minimal* version that supersets every CVE patch.
+4. **Mode selection — recommend Fast-Track or Standard.** See "Fast-Track mode" section for the eligibility rules. Present a one-liner recommendation alongside the ranked summary, e.g. *"This is a dev-dependency; would you like to Fast-Track this fix?"* Default to Standard if the user is silent or ambiguous.
+
+### Standard mode (steps 5–7) — full defensive pipeline
+
+5. **Exposure Mapping** — locate every import site of the target package in source, classify each into Public/API · Client-Bundle · Internal/Dev (see "Exposure Mapping" section). Output counts + sample paths.
+6. **Changelog scrape** — fetch release notes / `CHANGELOG.md` between currently-installed and target version. Grep for `BREAKING`, `DEPRECATED`, `MIGRATION`, `removed`, `dropped support`. Surface flagged lines verbatim.
+7. **Safety interlock — PAUSE.** Print the exposure summary + changelog flags + chosen target version to the user. Wait for explicit OK ("yes", "go", "looks fine", etc) before any file edits. If `BREAKING`/`DEPRECATED`/`MIGRATION` was flagged, require a second affirmative.
+
+### Fast-Track mode (steps 5–7) — low-risk shortcut
+
+5. **Lightweight exposure check** — run the import-site grep ONCE to confirm the dominant Exposure category, but do NOT enumerate paths. Output: `Exposure: Internal/Dev (8 sites)`. Stops here; no per-category breakdown, no path listing.
+6. **Skip changelog scrape.** (Fast-Track explicitly trades changelog visibility for speed; the eligibility rules below cap the blast radius this can cause.)
+7. **Single-confirmation interlock — PAUSE.** Print: target version + dominant Exposure category + CVSS + reason for Fast-Track eligibility. One affirmative ("yes", "go", "ship it") moves on; anything ambiguous falls back to Standard.
+
+### Apply (steps 8–11) — identical in both modes, non-negotiable
+
+8. **Confirm branching strategy AND base branch.** Detect default branch via `gh repo view --json defaultBranchRef`; never hardcode `main`. Default: one PR per package off latest `origin/<detected-base>`.
+9. **Edit `package.json`** — dual-write both `pnpm.overrides` AND top-level `overrides` (mandatory; see "Override pattern"). Required in BOTH modes.
+10. **Regenerate BOTH lockfiles** — `pnpm install --no-frozen-lockfile` AND `npm install --package-lock-only`. No "primary" lockfile; both must be regenerated.
+11. **Parity check** — read both lockfiles and assert they resolved to the *same* version of the target package. **Mismatch → abort PR in BOTH modes.** See "Auto-reversion on parity / build failure" for what to do next.
+12. **Commit on the branch and open a PR** — with explicit user OK before pushing.
 
 ## What Claude will NOT do without confirmation
 
 - Bump a direct dependency across major versions (breaking).
 - Apply a bump when changelog scrape flagged `BREAKING` / `DEPRECATED` / `MIGRATION` without a second user confirmation.
-- Open the PR if the lockfile parity check failed.
+- Open the PR if the lockfile parity check failed (Standard OR Fast-Track).
+- Skip dual-write override (mandatory in both modes).
+- **Use Fast-Track for hard-ineligible cases** — `Public/API` import sites combined with CVSS ≥ 7.0, `critical` severity advisory, or a required cross-major bump. Fall back to Standard regardless of user request; the safety floor is non-overridable.
 - Auto-fan-out across an org when the user only pasted a single repo URL (or vice versa).
 - Delete or replace a package.
 - Push to `main` / merge the PR.
 - Skip pre-commit hooks.
+
+## Fast-Track mode
+
+A streamlined branch of the workflow for low-risk bumps. Trades changelog visibility and detailed exposure enumeration for velocity. Lockfile integrity is **not** sacrificed — dual-write override and parity check are still mandatory.
+
+### Eligibility (any one is sufficient)
+
+- **Dev-only exposure** — the lightweight import-site check shows ≥ 90% of sites in `Internal/Dev` (configs, scripts, tests, tooling) and zero sites in `Public/API`.
+- **Low CVSS** — `security_advisory.cvss.score` < 7.0 *and* no Public/API import sites.
+- **User opt-in** — the user explicitly says `"fast-track"`, `"just bump it"`, `"don't bother with the changelog"`, or similar.
+
+If none apply, default to Standard mode.
+
+### Hard ineligibility (no override — always Standard)
+
+Fast-Track is refused — fall back to Standard with a one-line explanation — when:
+
+- The package has any `Public/API` import sites AND CVSS ≥ 7.0.
+- The advisory severity is `critical` (regardless of CVSS).
+- A cross-major bump is required (defensive minimum sits in the next major).
+
+These are non-overridable. If the user explicitly requests Fast-Track in one of these cases, refuse politely and run Standard mode — the safety floor isn't user-configurable.
+
+### What Fast-Track skips
+
+| Step | Standard | Fast-Track |
+|---|---|---|
+| Exposure Mapping (per-site enumeration) | Yes — full path listing per category | Skipped — single-line dominant category only |
+| Changelog scrape | Yes — release notes + CHANGELOG.md, BREAKING/DEPRECATED/MIGRATION flagged | Skipped |
+| Safety interlock | Two confirmations if breaking-change keywords flagged | Single confirmation |
+
+### What Fast-Track keeps (non-negotiable)
+
+| Step | Both modes |
+|---|---|
+| Defensive minimal-patched version | Yes |
+| Dual-write override (`pnpm.overrides` + top-level `overrides`) | Yes |
+| Both-lockfile regeneration | Yes |
+| Lockfile parity check + abort on mismatch | Yes |
+| Commit + push gated on explicit user OK | Yes |
+
+### Recommendation prompting
+
+When presenting the ranked summary in step 4, include a Mode column or one-line recommendation:
+
+```
+Rank | Repo            | Package           | CVSS | Exposure (dominant) | Recommended mode
+1    | webhook-ternity | @types/node       | 5.3  | Internal/Dev        | Fast-Track (Internal/Dev + low CVSS)
+2    | webhook-ternity | axios             | 7.5  | Public/API          | Standard (hard-ineligible: Public/API + CVSS ≥ 7)
+3    | webhook-ternity | follow-redirects  | 6.5  | Public/API          | Standard (Public/API exposure, no auto-rule fires; opt-in available)
+```
+
+Prompt verbatim where helpful: *"#1 is a dev-only @types bump with CVSS 5.3 — would you like to Fast-Track this fix?"*
+
+Note: a Client-Bundle XSS-sanitizer package (e.g. `dompurify`, `sanitize-html`) at CVSS < 7.0 *will* trigger the auto Fast-Track rule per the eligibility table. Surface the recommendation but flag it: *"This is a sanitizer-class package on Client-Bundle — Fast-Track eligible by CVSS, but you may want Standard to see the changelog. Your call."* Defer to user.
+
+### Auto-reversion on parity / build failure
+
+Fast-Track skips analysis but does not paper over failures. If, after the bump:
+
+- **Parity check fails** (npm and pnpm resolved to different versions), OR
+- The user runs `pnpm build` / `npm test` and reports a failure, OR
+- A pre-commit hook (lint, typecheck) fails
+
+…then offer to switch back to Standard mode for the same package:
+
+> *"Fast-Track hit `<failure>`. Want me to re-run this in Standard mode — pull the changelog and full exposure mapping so we can see what's actually changed?"*
+
+Do not silently retry Fast-Track on the same package after a failure. Either escalate to Standard or stop and ask. Repeated Fast-Track retries on a failing bump is exactly the trap this mode is designed to avoid.
 
 ## Prioritization framework
 
