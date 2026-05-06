@@ -45,10 +45,11 @@ Provide one of:
 
 1. Fetch alerts via `gh api .../dependabot/alerts`, dedupe by package, rank using framework below.
 2. For the top-ranked alert, read advisory details (`first_patched_version`, range).
-3. Edit `package.json` to add an override.
-4. Regenerate both lockfiles.
-5. Verify resolved version.
-6. Commit on a branch and open a PR (with explicit user OK before pushing).
+3. Confirm branching strategy AND base branch with user (see "Branching strategy" below). Detect default branch via `gh repo view --json defaultBranchRef`; never hardcode `main`. Default strategy: one PR per package, branched off latest `origin/<detected-base>`.
+4. Edit `package.json` to add an override.
+5. Regenerate both lockfiles.
+6. Verify resolved version.
+7. Commit on the branch and open a PR (with explicit user OK before pushing).
 
 ## What Claude will NOT do without confirmation
 
@@ -64,12 +65,42 @@ Three axes, in order:
 2. **Reachability** — can attacker-controlled input hit the vuln code path? Webhook/HTTP-facing services magnify SSRF and any vuln in input parsers (XML, headers, glob).
 3. **CVSS** — tiebreaker only. Raw score without reachability misleads (e.g. SSRF in axios shows 4.8 but matters more than a 7.5 dev-only ReDoS).
 
-## Prioritization framework
+## Branching strategy
 
-Three axes, in order:
-1. **Impact** — RCE > data exfil/SSRF > DoS > logic bugs
-2. **Reachability** — can attacker-controlled input hit the vuln code path? Webhook/HTTP-facing services magnify SSRF and any vuln in input parsers (XML, headers, glob).
-3. **CVSS** — tiebreaker only. Raw score without reachability misleads (e.g. SSRF in axios shows 4.8 but matters more than a 7.5 dev-only ReDoS).
+**Default: one package per branch, one PR per branch.** Easier to review, easier to revert if a single override breaks something downstream.
+
+### Determine the base branch dynamically
+
+Do NOT hardcode `main`. The base may be `main`, `master`, `pre-release`, `develop`, etc. Detect at run time:
+
+```bash
+# Repo's configured default branch (preferred)
+gh repo view --json defaultBranchRef --jq .defaultBranchRef.name
+
+# Fallback if gh unavailable
+git symbolic-ref refs/remotes/origin/HEAD --short | sed 's@^origin/@@'
+```
+
+If the user has a different release flow (e.g. PRs target `pre-release`, then promoted to `main`), ASK them which branch this PR should target. Don't assume.
+
+### Always branch from the latest remote base, not local
+
+```bash
+BASE=<detected-or-confirmed-base>
+git fetch origin "$BASE"
+git checkout -b <new-branch> "origin/$BASE"
+```
+
+Local copy of the base may be stale; branching off it pollutes the PR diff with drift from missed upstream commits.
+
+### Strategy options — ask the user
+
+Before starting, ask which strategy they want for this batch:
+- (a) **One PR per package** (default) — atomic, clean revert
+- (b) **One PR for multiple packages** — fewer PRs to review, but coupled revert
+- (c) **Stack onto an existing branch / open PR** — useful if the prior PR is still open and the user wants to bundle
+
+If user says "whatever's cleaner", pick (a).
 
 ## Workflow per alert
 
