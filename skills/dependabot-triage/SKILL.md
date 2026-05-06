@@ -28,7 +28,8 @@ Trigger phrases (any of these will route Claude Code to this skill):
 - "Bump `<pkg>` to a non-vulnerable version"
 
 Provide one of:
-- Dependabot security URL, OR
+- Repo-level Dependabot security URL (`github.com/<org>/<repo>/security/dependabot`), OR
+- **Org-level** Dependabot security URL (`github.com/orgs/<org>/security/alerts/dependabot`) — Claude will fan-out across the org and rank cross-repo, OR
 - Repo path + alert number(s), OR
 - Just the package name if you already know the vuln.
 
@@ -41,7 +42,11 @@ Provide one of:
 
 ## What Claude will do
 
-1. Fetch alerts via `gh api .../dependabot/alerts`, dedupe by package, rank using framework below.
+1. Fetch alerts:
+   - Repo URL → `gh api repos/<org>/<repo>/dependabot/alerts?state=open&per_page=100`
+   - Org URL → `gh api "orgs/<org>/dependabot/alerts?state=open&per_page=100"` (lists alerts across every repo in the org)
+
+   Dedupe by `(repo, package)`, rank using frameworks below.
 2. For the top-ranked alert, read advisory details (`first_patched_version`, range).
 3. Confirm branching strategy AND base branch with user (see "Branching strategy" below). Detect default branch via `gh repo view --json defaultBranchRef`; never hardcode `main`. Default strategy: one PR per package, branched off latest `origin/<detected-base>`.
 4. Edit `package.json` to add an override.
@@ -62,6 +67,16 @@ Three axes, in order:
 1. **Impact** — RCE > data exfil/SSRF > DoS > logic bugs
 2. **Reachability** — can attacker-controlled input hit the vuln code path? Webhook/HTTP-facing services magnify SSRF and any vuln in input parsers (XML, headers, glob).
 3. **CVSS** — tiebreaker only. Raw score without reachability misleads (e.g. SSRF in axios shows 4.8 but matters more than a 7.5 dev-only ReDoS).
+
+### Cross-repo / org-wide ranking
+
+When the input is an org URL or spans multiple repos, apply two extra rules on top of the three axes above:
+
+- **Group by `(repo, package)` first.** GitHub raises N alerts per `(repo, package)` pair when there are N CVEs against the same dep. Collapse them — one bump fixes the cluster.
+- **Cluster bonus.** A `(repo, package)` pair with many alerts on an HTTP-facing service is the highest-ROI pick, even if individual CVSS scores are mid. Example: 30 axios alerts in a webhook service > 1 CVSS-9 alert in an internal CLI tool — single PR closes 30 alerts AND it's reachable.
+- **Repo character matters.** HTTP/webhook ingest services magnify reachability for HTTP libs (axios, follow-redirects, fast-xml-parser). Frontend repos magnify XSS sanitizers (dompurify). Build-only deps (postcss in build chains) deprioritize.
+
+Output a ranked table to the user: rank, repo, package, why-first, alerts-collapsed. Let user pick or accept default (rank 1).
 
 ## Branching strategy
 
@@ -111,9 +126,15 @@ If user says "whatever's cleaner", pick (a).
 4. **Check direct usage**: `grep -r '<pkg>' --include='*.{js,ts,mjs}' -l | grep -v node_modules`. None = override-only fix, no code changes.
 5. **Pick version**: latest in same major via `npm show <pkg> versions --json`. Confirm not behind a paywall of breaking changes.
 
+   **Cluster shortcut**: when ≥3 alerts target the same `(repo, package)`, skip per-alert `first_patched_version` lookup. Just pick latest in same major (`npm show <pkg> version`) — the newest fix supersets older ones. Saves N round-trips and avoids picking a version that fixes some CVEs but not the latest.
+
 ## Override pattern (Node.js)
 
-For transitive vulns, dual-write to both override mechanisms if both lockfiles exist:
+Use overrides for:
+- **Transitive vulns** — package not in `dependencies`/`devDependencies`. Override is the only fix without bumping a parent.
+- **Direct deps where transitives ALSO request the package** — bumping `dependencies.<pkg>` doesn't guarantee transitives get the same version (different semver ranges may hoist separately). Add the override anyway as defense-in-depth. Cheap belt-and-suspenders.
+
+Dual-write to both override mechanisms if both lockfiles exist:
 
 ```json
 {
@@ -136,6 +157,7 @@ Then: `pnpm install --no-frozen-lockfile` AND `npm install --package-lock-only`.
   - Same lower bound. Caps at `<next_major`. Prevent surprise major bump.
 - Never `>X.Y.Z` — excludes the patched version itself, forces `X.Y.Z+1`, no benefit.
 - For pnpm conditional override (vuln only in some range), use `<pkg>@<range>: <fix>` syntax, e.g. `"axios@<1.12.0": ">=1.12.0"`.
+- **Conditional overrides rot.** If a prior conditional override exists (e.g. `"axios@<1.12.0": ">=1.12.0"`) and a new CVE range exceeds the prior cap, REPLACE the entry with a blanket `"axios": "^<latest>"`. Don't chain conditionals. Each new CVE batch tightens the floor; conditionals from a year ago are usually obsolete.
 
 ## Verify
 
@@ -146,7 +168,23 @@ grep -E '<pkg>@[0-9]' pnpm-lock.yaml | head -3
 
 Both must show patched version.
 
+**Don't trust install stdout.** `npm install --package-lock-only` may print `up to date` even when the override forced re-resolution and the lockfile actually changed. Same for pnpm in some edge cases. ALWAYS run the two verify commands above — they read the lockfile directly.
+
 ## Commit/PR format
 
 - Title: `security: bump <pkg> to ^X.Y.Z (CVE-XXXX-YYYYY)`
 - Body: link Dependabot alert numbers, name advisory (GHSA + CVE), state CVSS, explain dependent chain, note no source changes if override-only.
+
+## After merge — UI lag
+
+GitHub's Dependabot UI counts often lag the actual fix by 5–30 minutes. If the user reports "only N alerts closed, you predicted M" shortly after merge, don't assume the fix was incomplete. Verify via API first:
+
+```bash
+# Open axios alerts in this repo right now
+gh api "repos/<org>/<repo>/dependabot/alerts?state=open&per_page=100" --jq '[.[] | select(.dependency.package.name=="<pkg>")] | length'
+
+# Fixed-today list (sanity check the merge actually closed them)
+gh api "repos/<org>/<repo>/dependabot/alerts?state=fixed&per_page=100" --jq '[.[] | select(.dependency.package.name=="<pkg>" and (.fixed_at | startswith("'"$(date -u +%Y-%m-%d)"'")))] | length'
+```
+
+If API confirms fix but UI still shows old count, reassure the user — it's UI lag, not a regression. The API is the source of truth. UI typically catches up within an hour after the lockfile push.
