@@ -7,18 +7,16 @@ description: Triage and fix Dependabot vulnerability alerts in Node.js repos wit
 
 ## How to install (one-time, per engineer)
 
-Drop or symlink this directory into your Claude Code skills folder so the agent auto-loads it:
+Clone the repo anywhere, then run the bundled installer:
 
 ```bash
-# Option A — symlink (stays in sync with this repo)
-mkdir -p ~/.claude/skills
-ln -s git-practices/skills/dependabot-triage ~/.claude/skills/dependabot-triage
-
-# Option B — copy
-cp -r git-practices/skills/dependabot-triage ~/.claude/skills/
+git clone https://github.com/akshayrao14/git-practices.git   # anywhere
+bash git-practices/skills/dependabot-triage/install.sh
 ```
 
-Verify: in a new Claude Code session, the skill appears in `/skills` listing.
+`install.sh` resolves its own location at run time and symlinks this folder into `~/.claude/skills/dependabot-triage` — works regardless of where the repo lives on disk. Override the target via `CLAUDE_SKILLS_HOME` if needed.
+
+Restart your Claude Code session; the skill should appear in `/skills`. See `README.md` for uninstall + custom paths.
 
 ## How to invoke
 
