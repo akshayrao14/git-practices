@@ -1,9 +1,17 @@
 ---
 name: dependabot-triage
-description: Triage and fix Dependabot vulnerability alerts in Node.js repos with prioritization framework, transitive override pattern, and version-pinning rules. Use when the user shares a Dependabot URL, asks to fix CVEs, or asks which vulnerability to pick first.
+description: Triage and fix Dependabot vulnerability alerts in JavaScript/TypeScript repos (Node.js services AND browser frontends) with prioritization framework, transitive override pattern, and version-pinning rules. Covers npm, pnpm, yarn, bun lockfiles. Use when the user shares a Dependabot URL, asks to fix CVEs, or asks which vulnerability to pick first.
 ---
 
 # Dependabot Triage & Fix
+
+## Scope
+
+**Only JavaScript / TypeScript repos** — npm, pnpm, yarn, bun ecosystems. Covers backend Node.js services, frontend bundles (CSR), server-rendered apps (SSR), and mixed SSR+CSR frameworks (Next.js, Nuxt, Remix, SvelteKit).
+
+**NOT yet covered**: Python (pip / poetry / uv), Go modules, Java (Maven / Gradle), Ruby (bundler), Rust (cargo), .NET (NuGet). If the user shares a Dependabot URL pointing to a repo whose alerts are non-JS (check `.dependency.package.ecosystem`), say so explicitly and stop — don't apply this skill's mechanics to those ecosystems.
+
+The org-level fan-out *will* surface non-JS alerts (e.g. Python `pillow`, Java packages). Filter those out of the ranked table or call them out as "out of scope for this skill — handle separately".
 
 ## How to install (one-time, per engineer)
 
@@ -123,7 +131,7 @@ If user says "whatever's cleaner", pick (a).
    ```bash
    node -e "const l=require('./package-lock.json'); for(const[k,v]of Object.entries(l.packages||{}))if(v.dependencies?.['<pkg>']||v.devDependencies?.['<pkg>'])console.log(k,v.version);"
    ```
-4. **Check direct usage**: `grep -r '<pkg>' --include='*.{js,ts,mjs}' -l | grep -v node_modules`. None = override-only fix, no code changes.
+4. **Check direct usage**: `grep -rE "from ['\"]<pkg>['\"]|require\(['\"]<pkg>['\"]\)" --include='*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,vue,svelte}' -l | grep -v node_modules`. None = override-only fix, no code changes.
 5. **Pick version**: latest in same major via `npm show <pkg> versions --json`. Confirm not behind a paywall of breaking changes.
 
    **Cluster shortcut**: when ≥3 alerts target the same `(repo, package)`, skip per-alert `first_patched_version` lookup. Just pick latest in same major (`npm show <pkg> version`) — the newest fix supersets older ones. Saves N round-trips and avoids picking a version that fixes some CVEs but not the latest.
@@ -150,6 +158,57 @@ Dual-write to both override mechanisms if both lockfiles exist:
 ```
 
 Then: `pnpm install --no-frozen-lockfile` AND `npm install --package-lock-only`.
+
+## Frontend repos (browser bundles)
+
+Mechanics from above port directly to React, Next.js, Vite, Vue, Svelte, Angular repos. But the reachability model and tooling differ — adjust as follows:
+
+### Lockfile + override syntax per package manager
+
+| Package manager | Lockfile | Override field in `package.json` | Regen command |
+|---|---|---|---|
+| npm | `package-lock.json` | `"overrides": { ... }` | `npm install --package-lock-only` |
+| pnpm | `pnpm-lock.yaml` | `"pnpm": { "overrides": { ... } }` | `pnpm install --no-frozen-lockfile` |
+| yarn (v1) | `yarn.lock` | `"resolutions": { ... }` | `yarn install` |
+| yarn (berry, v2+) | `yarn.lock` | `"resolutions": { ... }` | `yarn install` |
+| bun | `bun.lockb` (or `bun.lock`) | `"overrides": { ... }` | `bun install` |
+
+If multiple lockfiles coexist (rare but happens during migrations), dual-write the override and regen each. Detect which lockfile the alert references via `.dependency.manifest_path` on the alert payload.
+
+### Reachability for frontend (CSR + SSR mix)
+
+Modern frontend repos are rarely pure-CSR. Next.js, Nuxt, Remix, SvelteKit, even some Vite setups ship a server runtime alongside the bundle. **A single dep can be reachable on both planes simultaneously.** Don't pick one model and apply it to the whole repo — classify per dep, per import site.
+
+Three reachability planes to check:
+
+1. **Bundled at runtime** (imported into client app code → ships to browser): attacker-reachable via XSS / DOM injection chains. Weight XSS-class vulns high here.
+2. **SSR / server runtime** (Next.js `getServerSideProps` + route handlers + middleware, Remix loaders/actions, Nuxt server routes, SvelteKit `+page.server.ts`, API routes): re-enables full server reachability — SSRF, proto-pollution in HTTP clients, header injection, NO_PROXY bypasses all matter. Treat exactly like a backend service for these files.
+3. **Build-only / dev-only** (`postcss`, `vite`, `eslint`, `webpack`, `@types/*`, test runners, scripts under `scripts/`): never ships. Reachability ~zero unless the dev machine itself is the target (supply chain). Deprioritize.
+
+A dep imported in BOTH `src/components/Foo.tsx` (bundled) AND `src/app/api/route.ts` (SSR) is reachable on both planes — apply the *higher* of the two priorities. axios in a Next.js repo used by both a client component and a route handler = high priority for SSRF AND XSS chains.
+
+Heuristic for classifying an import site:
+- `src/app/**/{page,layout,loading,error}.{ts,tsx}` (no `.server.` suffix), `src/components/**`, `src/pages/**` (Next.js classic, default exports) → **bundled** (also runs on server during SSR rendering, but mostly bundled).
+- `src/app/**/route.{ts,js}`, `src/app/**/*.server.{ts,tsx}`, `pages/api/**`, `middleware.{ts,js}`, `server/**`, `app/api/**`, `+page.server.{ts,js}`, `+server.{ts,js}` → **SSR / server-only**.
+- `vite.config.*`, `next.config.*`, `*.config.{js,ts,mjs}`, `scripts/`, `tests/`, `**/*.test.*`, `**/*.spec.*` → **build/dev-only**.
+
+When in doubt, ask the user how the dep is used — single PR may need to fix both client and server reachability.
+
+### Vuln-class weighting on frontend
+
+Reweight the impact axis:
+- **High**: XSS sanitizer bypass (dompurify, sanitize-html), prototype pollution in client state libs (lodash.merge, immer pre-9), template-injection in i18n libs, ReDoS in router/path matchers (path-to-regexp).
+- **Medium**: postMessage origin checks, JSON parser quirks shipped to the bundle.
+- **Low / N/A**: SSRF, header injection, NO_PROXY bypasses (no outbound HTTP from browser context — irrelevant unless SSR).
+
+Server-side skill priorities invert here: a CVSS-9 SSRF in a frontend-only axios install is usually nothing; a CVSS-5 dompurify bypass is critical.
+
+### Framework version locks — proceed carefully
+
+React/Next/Angular/Vue often pin transitive versions via peer deps or first-party meta-packages. Before bumping:
+- Check `peerDependencies` on the parent framework (`next`, `react`, `@angular/core`).
+- Major bumps of `@types/react`, `react-dom`, `next` mid-project frequently cascade through 30+ packages — flag as "needs separate PR + manual smoke test", do NOT roll into a security-bump PR.
+- Bumps to `core-js`, `regenerator-runtime`, `tslib` are usually safe; bumps to anything ending in `-loader` or `-plugin` (webpack/rollup/vite ecosystem) often break the build — verify by running `pnpm build` (or equivalent) before opening the PR.
 
 ## Version range rules
 
