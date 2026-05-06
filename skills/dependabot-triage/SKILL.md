@@ -12,10 +12,10 @@ Drop or symlink this directory into your Claude Code skills folder so the agent 
 ```bash
 # Option A — symlink (stays in sync with this repo)
 mkdir -p ~/.claude/skills
-ln -s /home/<you>/tern-work/git-practices/skills/dependabot-triage ~/.claude/skills/dependabot-triage
+ln -s git-practices/skills/dependabot-triage ~/.claude/skills/dependabot-triage
 
 # Option B — copy
-cp -r /home/<you>/tern-work/git-practices/skills/dependabot-triage ~/.claude/skills/
+cp -r git-practices/skills/dependabot-triage ~/.claude/skills/
 ```
 
 Verify: in a new Claude Code session, the skill appears in `/skills` listing.
