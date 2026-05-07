@@ -131,13 +131,23 @@ bash git-practices/skills/dependabot-triage/install.sh
 
 The script auto-detects your agent and symlinks this folder into the right skills dir:
 
-| Agent | Target dir |
-|-------|-----------|
-| Codex CLI | `~/.codex/skills/dependabot-triage` |
-| Claude Code | `~/.claude/skills/dependabot-triage` |
-| Generic / open-standard | `~/.agents/skills/dependabot-triage` |
+| Agent | Target dir | Detection |
+|-------|-----------|-----------|
+| Codex CLI | `~/.codex/skills/dependabot-triage` | auto |
+| Claude Code | `~/.claude/skills/dependabot-triage` | auto |
+| Cursor | `<project-root>/.cursor/skills/dependabot-triage` | manual (project-scoped — see below) |
+| Generic / open-standard | `~/.agents/skills/dependabot-triage` | fallback |
 
-Restart your agent session afterward so the skill is picked up.
+Restart your agent session (or reload your Cursor workspace) afterward so the skill is picked up.
+
+### Cursor (project-scoped)
+
+Cursor has no global skills dir — install per project from inside the project root:
+
+```bash
+cd /path/to/your-cursor-project
+SKILLS_HOME=./.cursor/skills bash /path/to/git-practices/skills/dependabot-triage/install.sh
+```
 
 ### Custom skills directory
 
@@ -150,7 +160,7 @@ SKILLS_HOME=/path/to/skills bash git-practices/skills/dependabot-triage/install.
 ### Uninstall
 
 ```bash
-rm ~/.codex/skills/dependabot-triage      # or ~/.claude/skills/... or ~/.agents/skills/...
+rm ~/.codex/skills/dependabot-triage      # or ~/.claude/skills/... or ~/.agents/skills/... or <project>/.cursor/skills/...
 ```
 
 ## Prerequisites
