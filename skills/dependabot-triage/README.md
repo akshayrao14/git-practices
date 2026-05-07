@@ -1,6 +1,16 @@
 # dependabot-triage (v2.1)
 
+[![skills.sh](https://skills.sh/b/akshayrao14/git-practices)](https://skills.sh/akshayrao14/git-practices)
+
 Claude Code skill for triaging and fixing Dependabot vulnerability alerts in JavaScript / TypeScript repos (Node.js services AND browser frontends). Covers npm, pnpm, yarn, bun lockfiles.
+
+## Install
+
+```bash
+npx skills add akshayrao14/git-practices
+```
+
+Or clone manually into `~/.claude/skills/dependabot-triage/`.
 
 ## What it does
 
