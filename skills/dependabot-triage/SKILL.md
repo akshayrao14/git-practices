@@ -32,13 +32,13 @@ git clone https://github.com/akshayrao14/git-practices.git   # anywhere
 bash git-practices/skills/dependabot-triage/install.sh
 ```
 
-`install.sh` resolves its own location at run time and symlinks this folder into `~/.claude/skills/dependabot-triage` — works regardless of where the repo lives on disk. Override the target via `CLAUDE_SKILLS_HOME` if needed.
+`install.sh` resolves its own location at run time and symlinks this folder into the right skills dir for your agent (auto-detects Codex `~/.codex/skills`, Claude Code `~/.claude/skills`, or falls back to the open-standard `~/.agents/skills`). Override the target via `SKILLS_HOME` if needed.
 
-Restart your Claude Code session; the skill should appear in `/skills`. See `README.md` for uninstall + custom paths.
+Restart your agent session (Claude Code, Codex, etc.); the skill should appear in `/skills` (Claude Code) or via the agent's skill discovery. See `README.md` for uninstall + custom paths.
 
 ## How to invoke
 
-Trigger phrases (any of these will route Claude Code to this skill):
+Trigger phrases (any of these will route the agent to this skill):
 
 - "Triage Dependabot alerts in `<repo>`"
 - "Which vuln should I fix first? <github.com/.../security/dependabot URL>"
@@ -58,9 +58,9 @@ Provide one of:
 ## Prerequisites
 
 - `gh` CLI authenticated with repo access (`gh auth status`).
-- Local clone of the target repo (Claude needs to read `package.json` + lockfiles).
+- Local clone of the target repo (agent needs to read `package.json` + lockfiles).
 - `node`, `pnpm`, and/or `npm` installed for lockfile regeneration.
-- Write permission to push a branch and open a PR (or accept that Claude stops at the commit step).
+- Write permission to push a branch and open a PR (or accept that the agent stops at the commit step).
 
 ## What Claude will do (v2.1 workflow)
 

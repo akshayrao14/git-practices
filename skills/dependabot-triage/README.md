@@ -2,7 +2,7 @@
 
 [![skills.sh](https://skills.sh/b/akshayrao14/git-practices)](https://skills.sh/akshayrao14/git-practices)
 
-Claude Code skill for triaging and fixing Dependabot vulnerability alerts in JavaScript / TypeScript repos (Node.js services AND browser frontends). Covers npm, pnpm, yarn, bun lockfiles.
+Agent Skill for triaging and fixing Dependabot vulnerability alerts in JavaScript / TypeScript repos (Node.js services AND browser frontends). Covers npm, pnpm, yarn, bun lockfiles. Compatible with any agent that supports the [Agent Skills standard](https://github.com/anthropics/skills) — Claude Code, Codex CLI, Gemini CLI, Cursor, etc.
 
 ## Install
 
@@ -10,7 +10,7 @@ Claude Code skill for triaging and fixing Dependabot vulnerability alerts in Jav
 npx skills add akshayrao14/git-practices
 ```
 
-Or clone manually into `~/.claude/skills/dependabot-triage/`.
+Or clone manually into your agent's skills dir (`~/.codex/skills/`, `~/.claude/skills/`, or `~/.agents/skills/`).
 
 ## What it does
 
@@ -129,20 +129,28 @@ git clone https://github.com/akshayrao14/git-practices.git   # anywhere on disk
 bash git-practices/skills/dependabot-triage/install.sh
 ```
 
-The script symlinks this folder into `~/.claude/skills/dependabot-triage`. Restart your Claude Code session afterward so the skill is picked up.
+The script auto-detects your agent and symlinks this folder into the right skills dir:
+
+| Agent | Target dir |
+|-------|-----------|
+| Codex CLI | `~/.codex/skills/dependabot-triage` |
+| Claude Code | `~/.claude/skills/dependabot-triage` |
+| Generic / open-standard | `~/.agents/skills/dependabot-triage` |
+
+Restart your agent session afterward so the skill is picked up.
 
 ### Custom skills directory
 
-Override the target with `CLAUDE_SKILLS_HOME`:
+Override the target with `SKILLS_HOME` (or legacy `CLAUDE_SKILLS_HOME`):
 
 ```bash
-CLAUDE_SKILLS_HOME=/path/to/skills bash git-practices/skills/dependabot-triage/install.sh
+SKILLS_HOME=/path/to/skills bash git-practices/skills/dependabot-triage/install.sh
 ```
 
 ### Uninstall
 
 ```bash
-rm ~/.claude/skills/dependabot-triage
+rm ~/.codex/skills/dependabot-triage      # or ~/.claude/skills/... or ~/.agents/skills/...
 ```
 
 ## Prerequisites
