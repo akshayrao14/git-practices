@@ -1,6 +1,6 @@
 ---
 name: dependabot-triage
-description: Triage and fix Dependabot vulnerability alerts in JavaScript/TypeScript repos (Node.js services AND browser frontends). v2.1 workflow with Standard (defensive) and Fast-Track (low-risk) modes — defensive minimal-patched versioning, exposure mapping (Public/API · Client-Bundle · Internal/Dev), mandatory lockfile parity check between npm and pnpm, changelog scrape with BREAKING/DEPRECATED/MIGRATION flagging, and safety interlock before applying bumps. Fast-Track mode skips changelog + detailed exposure for Internal/Dev or CVSS<7 alerts, but parity check + dual-write are non-negotiable. Covers npm, pnpm, yarn, bun lockfiles. Use when the user shares a Dependabot URL, asks to fix CVEs, or asks which vulnerability to pick first.
+description: Triage and fix Dependabot vulnerability alerts in JavaScript/TypeScript repos (Node.js services AND browser frontends). v2.1 workflow with Standard (defensive) and Fast-Track (low-risk) modes — defensive minimal-patched versioning, exposure mapping (Public/API · Client-Bundle · Internal/Dev), CI workflow inspection to detect every PM in play, mandatory lockfile parity check across every PM that touches package.json, changelog scrape with BREAKING/DEPRECATED/MIGRATION flagging, and safety interlock before applying bumps. Fast-Track mode skips changelog + detailed exposure for Internal/Dev or CVSS<7 alerts, but parity check + dual-write are non-negotiable. Covers npm, pnpm, yarn, bun lockfiles. Use when the user shares a Dependabot URL, asks to fix CVEs, or asks which vulnerability to pick first.
 ---
 
 # Dependabot Triage & Fix (v2.1)
@@ -8,9 +8,10 @@ description: Triage and fix Dependabot vulnerability alerts in JavaScript/TypeSc
 ## v2.1 highlights
 
 - **Two modes — Standard and Fast-Track.** Standard is the defensive workflow (full exposure mapping, changelog scrape, safety interlock). Fast-Track is for low-risk bumps (Internal/Dev category, CVSS < 7, or user opt-in) — skips changelog + detailed exposure enumeration, single-confirmation interlock. Parity check + dual-write are non-negotiable in BOTH modes.
+- **CI workflow inspection — first-class detection step.** Lockfile alone doesn't tell you what runs in CI. CI may use a different PM than the committed lockfile (e.g. yarn.lock committed, CI runs `npm install`), or may run `<pm> install` instead of lockfile-strict `<pm> ci`. Detection drives the override + parity matrix.
 - **Defensive versioning** — pick the *minimal* patched version that fixes all in-cluster CVEs, not "latest in same major".
 - **Exposure Mapping** replaces heuristic reachability — categorize every import site (Public/API · Client-Bundle · Internal/Dev) and present surface area to the user instead of trying to prove unreachability.
-- **Mandatory lockfile parity check** — `package-lock.json` and `pnpm-lock.yaml` must resolve to the *same* version of the target package; mismatch aborts the PR. Required because CI/CD runs npm while local sanity checks run pnpm.
+- **Mandatory lockfile parity check** — every PM that touches `package.json` (npm, pnpm, yarn classic/berry, bun) must resolve to the *same* version of the target package; mismatch aborts the PR. Required because CI/CD often runs a different PM than local sanity checks (e.g. npm-CI + pnpm-local, or yarn-local + npm-CI).
 - **Changelog scrape with safety interlock** (Standard mode) — fetch release notes / CHANGELOG between current and target, flag `BREAKING` / `DEPRECATED` / `MIGRATION` keywords, pause for explicit user confirmation before applying the bump.
 - **Auto-reversion** — if Fast-Track fails parity or the build fails post-bump, the skill offers to switch back to Standard mode for deeper analysis instead of grinding on retries.
 - **Org-level fan-out is opt-in only** — never auto-trigger; org enumeration burns API rate limit and surfaces non-JS noise.
@@ -25,16 +26,11 @@ The org-level fan-out *will* surface non-JS alerts (e.g. Python `pillow`, Java p
 
 ## How to install (one-time, per engineer)
 
-Clone the repo anywhere, then run the bundled installer:
-
 ```bash
-git clone https://github.com/akshayrao14/git-practices.git   # anywhere
-bash git-practices/skills/dependabot-triage/install.sh
+npx skills add akshayrao14/dependabot-triage
 ```
 
-`install.sh` resolves its own location at run time and symlinks this folder into the right skills dir for your agent (auto-detects Codex `~/.codex/skills`, Claude Code `~/.claude/skills`, or falls back to the open-standard `~/.agents/skills`). Override the target via `SKILLS_HOME` if needed.
-
-Restart your agent session (Claude Code, Codex, etc.); the skill should appear in `/skills` (Claude Code) or via the agent's skill discovery. See `README.md` for uninstall + custom paths.
+Installs into the right skills dir for your agent (Codex `~/.codex/skills`, Claude Code `~/.claude/skills`, or open-standard `~/.agents/skills`). Restart your agent session afterward — the skill should appear in `/skills` (Claude Code) or via the agent's skill discovery.
 
 ## How to invoke
 
@@ -65,39 +61,49 @@ Provide one of:
 ## What Claude will do (v2.1 workflow)
 
 ```
-Fetch + Rank   →   Mode Selection   →   { Standard | Fast-Track }   →   Apply + Parity Check   →   PR
+Detect PMs   →   Fetch + Rank   →   Mode Selection   →   { Standard | Fast-Track }   →   Apply + Parity Check   →   PR
 ```
 
-The early steps (1–3) are the same in both modes. The middle steps branch by mode. The closing steps (regen + parity + PR) are identical and non-negotiable.
+The early steps (1–4) are the same in both modes. The middle steps branch by mode. The closing steps (regen + parity + PR) are identical and non-negotiable.
 
-1. **Fetch alerts**:
+1. **Detect package managers in play** — before fetching alerts, figure out which PM(s) actually touch this repo, in *every* context (local install, CI install, container build). The override + parity matrix below depends on this.
+   - **Committed lockfiles**: `ls package-lock.json pnpm-lock.yaml yarn.lock bun.lock* 2>/dev/null`.
+   - **CI / container install commands** — grep CI configs and Dockerfiles for the actual install command:
+     ```bash
+     rg -tg '*.yml' -tg '*.yaml' \
+       '\b(npm (install|ci)|yarn install|pnpm install|bun install)\b' \
+       .github .gitlab-ci.yml Dockerfile* docker-compose*.yml circle.yml .circleci 2>/dev/null
+     ```
+   - **Compare** committed lockfiles against CI install commands. If CI's PM differs from the committed-lockfile PM, OR no lockfile is committed for the CI PM, expand the override + parity matrix accordingly (see "Override pattern" and "Verify (Parity Check)").
+   - **Don't ask the user up-front to classify the PM setup.** They often only know half the picture (their local context, not CI; or vice versa). Detect from lockfile + CI grep, show what was found, and ask only to confirm anomalies (e.g. *"I see yarn.lock committed but CI runs `npm install` — confirm both are intentional?"*).
+2. **Fetch alerts**:
    - Repo URL → `gh api "repos/<org>/<repo>/dependabot/alerts?state=open&per_page=100"`
    - Org URL → only after explicit user confirmation, then `gh api "orgs/<org>/dependabot/alerts?state=open&per_page=100"` (paginates across every repo).
    - Filter `.dependency.package.ecosystem == "npm"` for this skill; surface non-JS alerts as out-of-scope.
    - Dedupe by `(repo, package)`.
-2. **Rank** using the prioritization framework (Impact × Exposure × CVSS).
-3. **Read advisory** for the top pick — extract `first_patched_version`, `vulnerable_version_range`, and `cvss.score`. For clusters, compute the *minimal* version that supersets every CVE patch.
-4. **Mode selection — recommend Fast-Track or Standard.** See "Fast-Track mode" section for the eligibility rules. Present a one-liner recommendation alongside the ranked summary, e.g. *"This is a dev-dependency; would you like to Fast-Track this fix?"* Default to Standard if the user is silent or ambiguous.
+3. **Rank** using the prioritization framework (Impact × Exposure × CVSS).
+4. **Read advisory** for the top pick — extract `first_patched_version`, `vulnerable_version_range`, and `cvss.score`. For clusters, compute the *minimal* version that supersets every CVE patch.
+5. **Mode selection — recommend Fast-Track or Standard.** See "Fast-Track mode" section for the eligibility rules. Present a one-liner recommendation alongside the ranked summary, e.g. *"This is a dev-dependency; would you like to Fast-Track this fix?"* Default to Standard if the user is silent or ambiguous. Also default to Standard when no lockfile is committed for the CI PM — every CI build re-resolves transitives fresh, the override field is the only pin, and the case is Fast-Track-ineligible (no lockfile parity to check).
 
-### Standard mode (steps 5–7) — full defensive pipeline
+### Standard mode (steps 6–8) — full defensive pipeline
 
-5. **Exposure Mapping** — locate every import site of the target package in source, classify each into Public/API · Client-Bundle · Internal/Dev (see "Exposure Mapping" section). Output counts + sample paths.
-6. **Changelog scrape** — fetch release notes / `CHANGELOG.md` between currently-installed and target version. Grep for `BREAKING`, `DEPRECATED`, `MIGRATION`, `removed`, `dropped support`. Surface flagged lines verbatim.
-7. **Safety interlock — PAUSE.** Print the exposure summary + changelog flags + chosen target version to the user. Wait for explicit OK ("yes", "go", "looks fine", etc) before any file edits. If `BREAKING`/`DEPRECATED`/`MIGRATION` was flagged, require a second affirmative.
+6. **Exposure Mapping** — locate every import site of the target package in source, classify each into Public/API · Client-Bundle · Internal/Dev (see "Exposure Mapping" section). Output counts + sample paths.
+7. **Changelog scrape** — fetch release notes / `CHANGELOG.md` between currently-installed and target version. Grep for `BREAKING`, `DEPRECATED`, `MIGRATION`, `removed`, `dropped support`. Surface flagged lines verbatim.
+8. **Safety interlock — PAUSE.** Print the exposure summary + changelog flags + chosen target version to the user. Wait for explicit OK ("yes", "go", "looks fine", etc) before any file edits. If `BREAKING`/`DEPRECATED`/`MIGRATION` was flagged, require a second affirmative.
 
-### Fast-Track mode (steps 5–7) — low-risk shortcut
+### Fast-Track mode (steps 6–8) — low-risk shortcut
 
-5. **Lightweight exposure check** — run the import-site grep ONCE to confirm the dominant Exposure category, but do NOT enumerate paths. Output: `Exposure: Internal/Dev (8 sites)`. Stops here; no per-category breakdown, no path listing.
-6. **Skip changelog scrape.** (Fast-Track explicitly trades changelog visibility for speed; the eligibility rules below cap the blast radius this can cause.)
-7. **Single-confirmation interlock — PAUSE.** Print: target version + dominant Exposure category + CVSS + reason for Fast-Track eligibility. One affirmative ("yes", "go", "ship it") moves on; anything ambiguous falls back to Standard.
+6. **Lightweight exposure check** — run the import-site grep ONCE to confirm the dominant Exposure category, but do NOT enumerate paths. Output: `Exposure: Internal/Dev (8 sites)`. Stops here; no per-category breakdown, no path listing.
+7. **Skip changelog scrape.** (Fast-Track explicitly trades changelog visibility for speed; the eligibility rules below cap the blast radius this can cause.)
+8. **Single-confirmation interlock — PAUSE.** Print: target version + dominant Exposure category + CVSS + reason for Fast-Track eligibility. One affirmative ("yes", "go", "ship it") moves on; anything ambiguous falls back to Standard.
 
-### Apply (steps 8–11) — identical in both modes, non-negotiable
+### Apply (steps 9–13) — identical in both modes, non-negotiable
 
-8. **Confirm branching strategy AND base branch.** Detect default branch via `gh repo view --json defaultBranchRef`; never hardcode `main`. Default: one PR per package off latest `origin/<detected-base>`.
-9. **Edit `package.json`** — dual-write both `pnpm.overrides` AND top-level `overrides` (mandatory; see "Override pattern"). Required in BOTH modes.
-10. **Regenerate BOTH lockfiles** — `pnpm install --no-frozen-lockfile` AND `npm install --package-lock-only`. No "primary" lockfile; both must be regenerated.
-11. **Parity check** — read both lockfiles and assert they resolved to the *same* version of the target package. **Mismatch → abort PR in BOTH modes.** See "Auto-reversion on parity / build failure" for what to do next.
-12. **Commit on the branch and open a PR** — with explicit user OK before pushing.
+9. **Confirm branching strategy AND base branch.** Detect default branch via `gh repo view --json defaultBranchRef`; never hardcode `main`. Default: one PR per package off latest `origin/<detected-base>`.
+10. **Edit `package.json`** — write the override field for *every* PM detected in step 1 (npm `overrides`, pnpm `pnpm.overrides`, yarn `resolutions`, bun `overrides`; see "Override pattern"). Required in BOTH modes.
+11. **Regenerate every relevant lockfile** — for each PM detected in step 1, run its install. For PMs without a committed lockfile, generate a temp one for the parity check and **delete it before commit** (see "Verify (Parity Check)"). No "primary" lockfile.
+12. **Parity check** — for each PM detected in step 1, read its lockfile (or `<pm> why` output) and assert every PM resolved to the *same* version of the target package. **Mismatch → abort PR in BOTH modes.** See "Auto-reversion on parity / build failure" for what to do next.
+13. **Commit on the branch and open a PR** — with explicit user OK before pushing.
 
 ## What Claude will NOT do without confirmation
 
@@ -130,6 +136,7 @@ Fast-Track is refused — fall back to Standard with a one-line explanation — 
 - The package has any `Public/API` import sites AND CVSS ≥ 7.0.
 - The advisory severity is `critical` (regardless of CVSS).
 - A cross-major bump is required (defensive minimum sits in the next major).
+- CI runs `<pm> install` (not `<pm> ci` / lockfile-strict) without a committed lockfile for that PM. Every CI build re-resolves transitives fresh — the override field is the only pin on that side. Higher stakes; deserves Standard's full visibility. Also parity-check-ineligible: there's no committed lockfile to compare against.
 
 These are non-overridable. If the user explicitly requests Fast-Track in one of these cases, refuse politely and run Standard mode — the safety floor isn't user-configurable.
 
@@ -153,7 +160,7 @@ These are non-overridable. If the user explicitly requests Fast-Track in one of 
 
 ### Recommendation prompting
 
-When presenting the ranked summary in step 4, include a Mode column or one-line recommendation:
+When presenting the ranked summary in step 5, include a Mode column or one-line recommendation:
 
 ```
 Rank | Repo            | Package           | CVSS | Exposure (dominant) | Recommended mode
@@ -281,7 +288,9 @@ If user says "whatever's cleaner", pick (a).
 
 ## Workflow per alert
 
-1. **Dedupe**: GitHub raises one alert per lockfile. `package-lock.json` + `pnpm-lock.yaml` = 2 alerts, 1 vuln. Fix package once.
+Assumes "Detect package managers in play" (workflow step 1) is already done — the override + parity matrix below depends on knowing which PMs touch this repo.
+
+1. **Dedupe**: GitHub raises one alert per committed lockfile. Two committed lockfiles (e.g. `package-lock.json` + `pnpm-lock.yaml`) = 2 alerts, 1 vuln. Fix the package once.
 2. **Get advisory**: `gh api repos/<org>/<repo>/dependabot/alerts/<n>` — extract `first_patched_version` and `vulnerable_version_range`. The list endpoint hides these. For clusters, fetch every alert in the cluster.
 3. **Locate**: direct dep (in `package.json`) or transitive? Find dependents:
    ```bash
@@ -329,12 +338,19 @@ Use overrides for:
 
 ### Dual-write is MANDATORY
 
-Many repos in this org run **npm in CI/CD** (the build that ships to prod) but **pnpm locally** (developer sanity checks). The two managers honor *different* override fields:
+Write the override field for **every PM detected in step 1**, in any context (local install, CI install, container build). Different PMs honor *different* override fields:
 
-- npm reads top-level `"overrides": { ... }`
-- pnpm reads `"pnpm": { "overrides": { ... } }`
+| PM | Override field in `package.json` |
+|---|---|
+| npm | `overrides` |
+| pnpm | `pnpm.overrides` |
+| yarn classic (v1) | `resolutions` |
+| yarn berry (v2+) | `resolutions` |
+| bun | `overrides` |
 
-Writing to only one of them produces **environment drift**: developers see one resolved version locally, CI ships another. This is exactly the bug class this skill exists to prevent. Dual-write both fields with the same target range, every time, even if only one lockfile is currently committed:
+Writing to only one when more than one PM is in play produces **environment drift**: developers see one resolved version locally, CI ships another. This is exactly the bug class this skill exists to prevent. Write the override into every relevant field with the same target range, every time, even if only one lockfile is currently committed.
+
+A common pattern in this org is npm-CI + pnpm-local; the same drift class applies to any PM mismatch (yarn-local + npm-CI, bun-local + npm-CI, etc.). The canonical npm + pnpm dual-write looks like:
 
 ```json
 {
@@ -349,14 +365,31 @@ Writing to only one of them produces **environment drift**: developers see one r
 }
 ```
 
-Then regenerate **both** lockfiles, in order:
+For a yarn + npm pair, you'd write `resolutions` AND `overrides`; for yarn + pnpm, `resolutions` AND `pnpm.overrides`. Substitute per the table above.
+
+Then regenerate every relevant lockfile. Canonical pnpm + npm pair:
 
 ```bash
 pnpm install --no-frozen-lockfile
 npm install --package-lock-only
 ```
 
-The Parity Check at the end of the workflow asserts both produced the same resolved version — see "Verify (Parity Check)".
+For other PMs the regen commands live in the table at "Frontend repos → Lockfile + override syntax per package manager".
+
+The Parity Check at the end of the workflow asserts every PM produced the same resolved version — see "Verify (Parity Check)".
+
+### npm `EOVERRIDE`: override must fit inside the direct-dep range
+
+npm errors out when `overrides.<pkg>` doesn't sit inside the range declared in `dependencies` / `devDependencies`:
+
+> `EOVERRIDE: Override for <pkg>@<range> conflicts with direct dependency`
+
+Two canonical fixes:
+
+- **Tighten the direct dep range** to be consistent with (or narrower than) the override. Example: a direct `"postcss": "^8"` paired with `overrides.postcss: "^8.5.10"` errors; change the direct dep to `"postcss": "^8.5.10"` and the override applies cleanly.
+- **Self-reference via `"$<pkg>"`** if the direct dep range shouldn't be touched: `"overrides": { "postcss": "$postcss" }` — npm reuses the resolved direct-dep version. Useful when the direct dep is already at a patched version and you only need to force transitives to follow.
+
+Yarn `resolutions` does *not* have this constraint — npm `overrides` only.
 
 ## Frontend repos (browser bundles + SSR)
 
@@ -415,51 +448,86 @@ React/Next/Angular/Vue often pin transitive versions via peer deps or first-part
 
 ## Verify (Parity Check)
 
-Two checks. Both must pass before the PR is opened.
+Two checks. Both must pass before the PR is opened. Run for **every PM detected in step 1**, not just the canonical npm + pnpm pair.
 
 ### 1. Patched-version resolution
 
-Confirm both lockfiles resolved the target package to a version `>= minimal_patched_version`:
+For each detected PM, confirm it resolves the target package to `>= minimal_patched_version`. Asking the PM directly (or reading the lockfile directly) is the most reliable method — robust to lockfile format changes:
 
 ```bash
 # npm: read package-lock.json directly
 NPM_VER=$(node -e "const l=require('./package-lock.json'); console.log(l.packages['node_modules/<pkg>']?.version || '');")
 
-# pnpm: ask pnpm itself for the resolved root version (most reliable — robust to lockfile format changes)
+# pnpm: ask pnpm itself for the resolved root version
 PNPM_VER=$(pnpm why <pkg> --depth=0 --json 2>/dev/null \
   | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d);const v=j[0]?.dependencies?.["<pkg>"]?.version || j[0]?.devDependencies?.["<pkg>"]?.version;console.log(v||"")})')
 
-echo "npm=$NPM_VER pnpm=$PNPM_VER"
+# yarn classic (v1)
+YARN_VER=$(yarn why <pkg> 2>/dev/null | grep -oE 'Found "<pkg>@[^"]+"' | head -1 | sed -E 's/.*@//; s/"$//')
+
+# yarn berry (v2+)
+YARN_VER=$(yarn why <pkg> --json 2>/dev/null | head -1 \
+  | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const j=JSON.parse(d);const k=Object.keys(j.children||{})[0];console.log(j.children?.[k]?.locator?.split("@npm:")[1]||"")}catch{}})')
+
+# bun
+BUN_VER=$(bun pm ls --all 2>/dev/null | grep -E '\b<pkg>@' | head -1 | sed -E 's/.*@//')
+
+echo "npm=$NPM_VER pnpm=$PNPM_VER yarn=$YARN_VER bun=$BUN_VER"
 ```
 
-Both must show the patched version (or higher).
+Use only the variables for PMs actually in play; ignore the rest. All must show the patched version (or higher).
+
+### Generating a temp lockfile (PMs without a committed lockfile)
+
+When CI uses a PM that has no committed lockfile (e.g. yarn.lock committed, CI runs `npm install`), generate a temp lockfile *just for the parity check*, then **delete it before commit**:
+
+| PM | Lockfile-only regen | Resulting file |
+|---|---|---|
+| npm | `npm install --package-lock-only` | `package-lock.json` |
+| pnpm | `pnpm install --lockfile-only` | `pnpm-lock.yaml` |
+| yarn classic | `yarn install --mode=update-lockfile` | `yarn.lock` |
+| yarn berry | `yarn install --mode=update-lockfile` | `yarn.lock` |
+| bun | `bun install --frozen-lockfile=false` | `bun.lock` |
+
+> ⚠ Do **NOT** commit a generated lockfile from a PM that doesn't already have one committed. Dual-lockfile drift is the exact bug class this skill exists to prevent — a generated `yarn.lock` alongside an authoritative `pnpm-lock.yaml` will silently diverge on the next `yarn install` and you've doubled the surface area, not halved it.
+
+When no lockfile is committed for a detected CI PM, also explicitly assert:
+
+- The override field for that PM is present in `package.json` (see PM table in "Override pattern → Dual-write is MANDATORY").
+- The direct-dep range for the target package is consistent with the override (anti-`EOVERRIDE`; see "npm `EOVERRIDE`").
 
 ### 2. Lockfile parity (MANDATORY — abort PR on mismatch)
 
 ```bash
-if [ -z "$NPM_VER" ] || [ -z "$PNPM_VER" ]; then
-  echo "PARITY ABORT: could not resolve <pkg> in one of the lockfiles"
+# Collect non-empty resolved versions across all detected PMs
+VERS=$(printf '%s\n' "$NPM_VER" "$PNPM_VER" "$YARN_VER" "$BUN_VER" | grep -v '^$' | sort -u)
+COUNT=$(echo "$VERS" | grep -c .)
+
+if [ "$COUNT" -eq 0 ]; then
+  echo "PARITY ABORT: could not resolve <pkg> in any lockfile"
   exit 1
 fi
-if [ "$NPM_VER" != "$PNPM_VER" ]; then
-  echo "PARITY ABORT: npm=$NPM_VER pnpm=$PNPM_VER"
+if [ "$COUNT" -gt 1 ]; then
+  echo "PARITY ABORT: PMs disagree:"
+  echo "$VERS"
   exit 1
 fi
-echo "PARITY OK: both resolved <pkg>@$NPM_VER"
+echo "PARITY OK: all PMs resolved <pkg>@$VERS"
 ```
 
-If npm and pnpm resolve to different versions of the target package, **abort the PR**. Do NOT push, do NOT open the PR, do NOT commit a half-fixed state. Surface the mismatch to the user, with both versions and the likely cause:
+If any pair of PMs resolves to different versions of the target package, **abort the PR**. Do NOT push, do NOT open the PR, do NOT commit a half-fixed state. Surface the mismatch to the user, with all versions and the likely cause:
 
-- Override missing from one of the two override mechanisms (most common) — re-edit `package.json`, dual-write both fields, regen, recheck.
+- Override missing from one of the override mechanisms (most common) — re-edit `package.json`, write the override into every relevant field, regen, recheck.
 - Conditional pnpm override (`pkg@<range>`) that npm doesn't honor — replace with blanket override.
 - pnpm hoisting boundary creating a transitive copy at a different version — may need `pnpm-lock.yaml`-level inspection (`pnpm why <pkg>` shows multiple versions).
+- npm `EOVERRIDE` blocked the override silently or failed loudly — check the direct-dep range (see "npm `EOVERRIDE`").
 - Different transitive resolution due to peer-dep mismatch — investigate before forcing.
 
-Environment drift between dev (pnpm sanity check) and CI/CD (npm) is exactly the bug class this skill exists to prevent. The Parity Check is non-negotiable.
+Environment drift between dev and CI/CD (any PM pair: npm-CI + pnpm-local, npm-CI + yarn-local, bun-local + npm-CI, etc.) is the bug class this skill exists to prevent. The Parity Check is non-negotiable.
 
 ### Don't trust install stdout
 
-`npm install --package-lock-only` may print `up to date` even when the override forced re-resolution and the lockfile actually changed. Same for pnpm in some edge cases. ALWAYS run the verify commands above — they read the lockfile directly.
+`npm install --package-lock-only` may print `up to date` even when the override forced re-resolution and the lockfile actually changed. Same for pnpm, yarn, and bun in some edge cases. ALWAYS run the verify commands above — they read the lockfile (or PM's own resolution graph) directly.
 
 ## Commit/PR format
 
@@ -479,3 +547,7 @@ gh api "repos/<org>/<repo>/dependabot/alerts?state=fixed&per_page=100" --jq '[.[
 ```
 
 If API confirms fix but UI still shows old count, reassure the user — it's UI lag, not a regression. The API is the source of truth. UI typically catches up within an hour after the lockfile push.
+
+## Platform notes
+
+- **Windows + OneDrive**: `yarn install` / `npm install` / `pnpm install` can hit `EPERM` on `.node` native binaries because OneDrive briefly locks files mid-sync. Single retry usually clears it. Don't kill processes, don't escalate to `--force` — just retry once.

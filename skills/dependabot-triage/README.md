@@ -1,16 +1,16 @@
 # dependabot-triage (v2.1)
 
-[![skills.sh](https://skills.sh/b/akshayrao14/git-practices)](https://skills.sh/akshayrao14/git-practices)
+[![skills.sh](https://skills.sh/akshayrao14/dependabot-triage)](https://skills.sh/akshayrao14/dependabot-triage)
 
 Agent Skill for triaging and fixing Dependabot vulnerability alerts in JavaScript / TypeScript repos (Node.js services AND browser frontends). Covers npm, pnpm, yarn, bun lockfiles. Compatible with any agent that supports the [Agent Skills standard](https://github.com/anthropics/skills) — Claude Code, Codex CLI, Gemini CLI, Cursor, etc.
 
 ## Install
 
 ```bash
-npx skills add akshayrao14/git-practices
+npx skills add akshayrao14/dependabot-triage
 ```
 
-Or clone manually into your agent's skills dir (`~/.codex/skills/`, `~/.claude/skills/`, or `~/.agents/skills/`).
+Installs into the right skills dir for your agent (Codex `~/.codex/skills/`, Claude Code `~/.claude/skills/`, or open-standard `~/.agents/skills/`). Restart your agent session afterward.
 
 ## What it does
 
@@ -22,8 +22,8 @@ Given a Dependabot alert (URL, alert number, or just the package name), Claude w
 4. **Pick a defensive minimal-patched version** — the smallest version that supersets every CVE patch in the cluster (not "latest in same major").
 5. **Scrape the changelog** between current and target version, flagging `BREAKING` / `DEPRECATED` / `MIGRATION` keywords.
 6. **PAUSE for explicit user OK** before applying the bump — required, with a second confirmation if changelog flags were raised.
-7. Dual-write the override into both `pnpm.overrides` and the top-level `overrides` field in `package.json`. Regenerate both lockfiles.
-8. **Run a parity check.** If npm and pnpm resolve to different versions of the target package, abort and surface the mismatch — do not open the PR.
+7. **Detect every PM in play** by inspecting committed lockfiles AND CI install commands (`.github/workflows`, Dockerfiles, etc.). Write the override into the field for every detected PM (`overrides` for npm/bun, `pnpm.overrides` for pnpm, `resolutions` for yarn). Regenerate every relevant lockfile.
+8. **Run a parity check across every PM.** If any pair resolves to different versions of the target package, abort and surface the mismatch — do not open the PR.
 9. Open a PR off the latest remote base branch — one PR per package by default.
 
 Full behavior spec is in [`SKILL.md`](./SKILL.md).
@@ -33,9 +33,10 @@ Full behavior spec is in [`SKILL.md`](./SKILL.md).
 This version replaces the earlier "guess if it's reachable" workflow with a more defensive, high-integrity pipeline, and adds an opt-in Fast-Track mode for low-risk bumps:
 
 - **Two modes — Standard and Fast-Track.** Standard is the full defensive workflow; Fast-Track is a velocity-optimized shortcut for dev-dependency or low-CVSS bumps. Lockfile integrity is non-negotiable in both modes.
+- **CI workflow inspection — first-class detection step.** Lockfile alone doesn't tell you what runs in CI; CI may use a different PM than the committed lockfile (e.g. yarn.lock committed, CI runs `npm install`), or may run `<pm> install` instead of lockfile-strict `<pm> ci`. Detection drives the override + parity matrix.
 - **Exposure Mapping** replaces heuristic reachability. Stop trying to prove a vuln is unreachable; categorize import sites and let the user make the risk call from the surface area.
 - **Defensive minimal-patched versioning** — smaller change surface, lower chance the bump itself breaks something. Latest-in-major is now opt-in.
-- **Mandatory lockfile parity check** between `package-lock.json` and `pnpm-lock.yaml`. Required because CI/CD runs npm but local sanity checks run pnpm — drift between the two is the exact class of bug this skill exists to prevent.
+- **Mandatory lockfile parity check** across every PM that touches `package.json` (npm, pnpm, yarn classic/berry, bun). Required because CI/CD often runs a different PM than local sanity checks (npm-CI + pnpm-local, yarn-local + npm-CI, etc.) — drift between them is the exact class of bug this skill exists to prevent.
 - **Changelog scrape with safety interlock** (Standard mode). No bump is applied without surfacing breaking-change flags first and getting explicit user confirmation.
 - **Auto-reversion** — if Fast-Track hits a parity failure or a build/test/hook failure, the skill offers to re-run the same package in Standard mode for deeper analysis instead of retrying blindly.
 - **Org-level fan-out is opt-in only.** Even if the user pastes an org URL, the skill confirms before paginating across the entire org (avoids API rate-limit burn and non-JS noise).
@@ -75,7 +76,7 @@ Even if the user asks for it, the skill falls back to Standard when:
 | **Parity check + abort on mismatch** | **Yes** | **Yes** |
 | Commit + push gated on user OK | Yes | Yes |
 
-The bottom block — dual-write, regeneration, parity check — is non-negotiable. We never sacrifice environment parity for speed; environment drift between dev (pnpm) and CI (npm) is the bug class this skill exists to prevent.
+The bottom block — dual-write, regeneration, parity check — is non-negotiable. We never sacrifice environment parity for speed; environment drift between dev and CI (any PM pair: npm-CI + pnpm-local, npm-CI + yarn-local, bun-local + npm-CI, etc.) is the bug class this skill exists to prevent.
 
 ### Auto-reversion on failure
 
@@ -95,7 +96,7 @@ The skill presents the surface to the user as counts + sample paths per category
 
 ## Parity Check
 
-After regenerating both lockfiles, the skill reads each one independently and compares the resolved version of the target package:
+After regenerating every relevant lockfile (one per detected PM), the skill reads each one independently and compares the resolved version of the target package across all PMs in play:
 
 ```
 npm  → 1.16.0
@@ -111,64 +112,24 @@ pnpm → 1.12.2
 PARITY ABORT
 ```
 
+(Same logic generalizes to yarn, bun, or any combination — every PM detected in the CI / lockfile inspection step must agree.)
+
 A mismatch aborts the PR. Common causes:
 
-- The override was written to only one of the two override fields (`pnpm.overrides` vs top-level `overrides`).
+- The override was written to only one of the override fields (e.g. `pnpm.overrides` filled but top-level `overrides` missing — or `resolutions` written but `overrides` skipped).
 - A conditional pnpm override (`pkg@<range>`) that npm doesn't honor.
 - pnpm hoisting created a transitive copy at a different version (run `pnpm why <pkg>` to inspect).
+- npm `EOVERRIDE` blocked the override silently or failed loudly — the override range conflicts with the direct-dep range; tighten the direct dep or use `"$<pkg>"` self-reference.
 - Peer-dep mismatch produced different transitive resolutions.
 
 The skill does NOT push the PR until parity is restored. Local-vs-CI environment drift is the class of bug v2.1 exists to prevent.
-
-## Install
-
-Clone the repo anywhere, then run the install script:
-
-```bash
-git clone https://github.com/akshayrao14/git-practices.git   # anywhere on disk
-bash git-practices/skills/dependabot-triage/install.sh
-```
-
-The script auto-detects your agent and symlinks this folder into the right skills dir:
-
-| Agent | Target dir | Detection |
-|-------|-----------|-----------|
-| Codex CLI | `~/.codex/skills/dependabot-triage` | auto |
-| Claude Code | `~/.claude/skills/dependabot-triage` | auto |
-| Cursor | `<project-root>/.cursor/skills/dependabot-triage` | manual (project-scoped — see below) |
-| Generic / open-standard | `~/.agents/skills/dependabot-triage` | fallback |
-
-Restart your agent session (or reload your Cursor workspace) afterward so the skill is picked up.
-
-### Cursor (project-scoped)
-
-Cursor has no global skills dir — install per project from inside the project root:
-
-```bash
-cd /path/to/your-cursor-project
-SKILLS_HOME=./.cursor/skills bash /path/to/git-practices/skills/dependabot-triage/install.sh
-```
-
-### Custom skills directory
-
-Override the target with `SKILLS_HOME` (or legacy `CLAUDE_SKILLS_HOME`):
-
-```bash
-SKILLS_HOME=/path/to/skills bash git-practices/skills/dependabot-triage/install.sh
-```
-
-### Uninstall
-
-```bash
-rm ~/.codex/skills/dependabot-triage      # or ~/.claude/skills/... or ~/.agents/skills/... or <project>/.cursor/skills/...
-```
 
 ## Prerequisites
 
 - `gh` CLI authenticated against the target repo (`gh auth status`).
 - Local clone of the repo whose alerts you're triaging.
-- `node`, `pnpm`, and `npm` for lockfile regeneration AND the parity check.
-- `ripgrep` (`rg`) recommended for the Exposure Mapping step; falls back to `grep` if unavailable.
+- `node` plus every PM the repo actually uses (across local AND CI — e.g. both `pnpm` and `npm` if the repo is pnpm-local + npm-CI). The parity check has to drive each PM.
+- `ripgrep` (`rg`) recommended for the Exposure Mapping step + the CI workflow inspection step; falls back to `grep` if unavailable.
 
 ## Trigger phrases
 
@@ -187,4 +148,8 @@ Org-wide triage requires explicit phrasing — do NOT auto-fan-out:
 
 ## Updating
 
-The install is a symlink, so `git pull` in the cloned repo immediately propagates updates. No reinstall needed.
+Re-run the install command to pull the latest version:
+
+```bash
+npx skills add akshayrao14/dependabot-triage
+```
