@@ -375,9 +375,13 @@ Assumes "Detect package managers in play" (workflow step 1) is already done — 
    - **Verify the target isn't yanked**:
      ```bash
      curl -s "https://pypi.org/pypi/<pkg>/json" \
-       | jq -r '.releases["<target>"][0] | "yanked=\(.yanked) reason=\(.yanked_reason)"'
-     # → "yanked=false reason=null" expected. "yanked=true ..." → pick the next release up.
+       | jq -r --arg t '<target>' \
+           '{yanked: (.releases[$t] | map(.yanked) | any),
+             reasons: (.releases[$t] | map(.yanked_reason) | unique - [null])}'
+     # → {"yanked": false, "reasons": []} expected.
+     # → any file in the release yanked → pick the next release up.
      ```
+     Per-file yanked status *should* be consistent across a release's artifacts, but isn't guaranteed; the `any` form catches the inconsistent case too.
    - **Verify `requires_python` compatibility**:
      ```bash
      curl -s "https://pypi.org/pypi/<pkg>/<target>/json" | jq -r '.info.requires_python'
@@ -388,7 +392,7 @@ Assumes "Detect package managers in play" (workflow step 1) is already done — 
      curl -s "https://pypi.org/pypi/<pkg>/<target>/json" \
        | jq -r '.urls[].filename' | grep -E '\.whl$' | sort
      ```
-     Verify wheels exist for every target platform tag (`manylinux2014_x86_64`, `manylinux2014_aarch64`, `musllinux_*`, `macosx_*`, `win_amd64`) AND every Python version (`cp310`, `cp311`, `cp312`) in the project's matrix. A missing wheel forces a source build on that target — silent CI break (slow build, may fail without compiler/headers).
+     Verify wheels exist for every target platform tag (`manylinux2014_x86_64`, `manylinux2014_aarch64`, `musllinux_*`, `macosx_*`, `win_amd64`) AND every Python version in the project's `requires-python` matrix (read from `project.requires-python` in `pyproject.toml`, or the project's CI test matrix). A missing wheel forces a source build on that target — silent CI break (slow build, may fail without compiler/headers).
    - **Do NOT default to "latest in same major."** Latest maximizes change surface and risks breaking transitives. Only override the defensive minimum when (a) the user explicitly asks, or (b) the minimum is unmaintained / yanked / pulls in its own fresh CVEs.
    - Cap at the same major as currently installed unless the user approves a major bump.
 6. **Changelog scrape** — fetch release notes between current and target version. Try PyPI's project metadata first, then the upstream GitHub:
@@ -396,18 +400,31 @@ Assumes "Detect package managers in play" (workflow step 1) is already done — 
    # 1. Pull PyPI project URLs — Changelog / Release notes are commonly listed
    curl -s "https://pypi.org/pypi/<pkg>/json" | jq -r '.info.project_urls'
 
-   # 2. If a GitHub repo is listed, fetch release notes via gh
+   # 2. If a GitHub repo is listed, fetch release notes via gh.
+   #    Strip trailing .git separately — repo names can contain dots
+   #    (org/foo.bar is valid), so the second path segment is [^/]+, not [^/.]+.
    PKG_REPO=$(curl -s "https://pypi.org/pypi/<pkg>/json" \
      | jq -r '.info.project_urls.Source // .info.project_urls.Repository // .info.project_urls.Homepage // .info.home_page' \
-     | sed -E 's|.*github\.com/([^/]+/[^/.]+).*|\1|')
+     | sed -E 's|.*github\.com/([^/]+/[^/]+).*|\1|; s|\.git$||')
    gh release view "v<target>" --repo "$PKG_REPO" --json tagName,body,createdAt 2>/dev/null \
      || gh release view "<target>" --repo "$PKG_REPO" --json tagName,body,createdAt
 
-   # 3. Fallback: download the sdist and grep the bundled CHANGELOG
-   pip download <pkg>==<target> --no-deps --no-binary=:all: -d /tmp/<pkg>-src/ >/dev/null 2>&1
-   tar -xf /tmp/<pkg>-src/<pkg>-<target>.tar.gz -C /tmp/<pkg>-src/
-   grep -inE 'BREAKING|DEPRECATED|MIGRATION|removed|drop(ped)? support' \
-     /tmp/<pkg>-src/<pkg>-<target>/{CHANGELOG*,CHANGES*,HISTORY*,NEWS*} 2>/dev/null | head -50
+   # 3. Fallback: download the sdist and grep the bundled CHANGELOG.
+   #    Resolve the sdist URL from the same PyPI JSON — distribution-name
+   #    normalization (PyYAML → pyyaml, python-dateutil → python_dateutil)
+   #    makes hand-guessed filenames unreliable.
+   SDIST_URL=$(curl -s "https://pypi.org/pypi/<pkg>/<target>/json" \
+     | jq -r '.urls[] | select(.packagetype=="sdist") | .url' | head -1)
+   if [[ -n "$SDIST_URL" ]]; then
+     SRC=/tmp/<pkg>-<target>
+     mkdir -p "$SRC" && curl -sL "$SDIST_URL" -o "$SRC/sdist.tar.gz"
+     tar -xf "$SRC/sdist.tar.gz" -C "$SRC" --strip-components=1
+     grep -inrE 'BREAKING|DEPRECATED|MIGRATION|removed|drop(ped)? support' \
+       --include='CHANGELOG*' --include='CHANGES*' \
+       --include='HISTORY*' --include='NEWS*' "$SRC" 2>/dev/null | head -50
+   else
+     echo "no sdist published for <pkg>==<target> — wheel-only release; skip sdist changelog fallback"
+   fi
    ```
    Surface the flagged lines verbatim to the user — do not paraphrase. If `BREAKING` / `DEPRECATED` / `MIGRATION` appears, raise the safety interlock to "second confirmation required" before proceeding.
 
@@ -477,7 +494,7 @@ Dropping the marker silently widens install scope (the dep installs on platforms
   - **No universal `^`.** The semver caret is poetry-only — `^X.Y.Z` works in `[tool.poetry.dependencies]`, nowhere else. Use the explicit `>=X.Y.Z,<(X+1).0.0` form for portability across uv / pdm / pip / pipenv.
   - **PEP 440 `~=X.Y.Z`** ("compatible release") is *narrower* than the semver caret: `~=X.Y.Z` means `>=X.Y.Z,<X.(Y+1).0`, i.e. patch-only flexibility. Use only when minor-bump flexibility is unwanted.
   - **Exact pin `==X.Y.Z`** is common in `requirements.txt` for reproducibility. Surface the trade-off to the user (no patch-level updates ride in) before defaulting to exact pin. A hash-pinned `requirements.txt` already has reproducibility via `--require-hashes`; layering `==` on top is redundant unless the project explicitly forbids re-resolves.
-- **For `uv override-dependencies` and `pdm overrides`**, use the full PEP 440 specifier (`<pkg>>=X.Y.Z,<(X+1).0.0`). Bare `<pkg>` or unbounded `>=X.Y.Z` is rejected by the resolver.
+- **For `uv override-dependencies` and `pdm overrides`**, use the full PEP 440 specifier with an upper bound (`<pkg>>=X.Y.Z,<(X+1).0.0`). A bare distribution name with no version part is invalid; an unbounded `>=X.Y.Z` *is* accepted by uv but lets a future major bump ride in silently — same anti-pattern as JS bare `>=` without a caret. Always cap.
 - **Never bare `>=X.Y.Z`** without an upper bound — surprise major bumps. Always cap.
 - **Never `>X.Y.Z`** — excludes the patched version itself, forces `X.Y.Z+1`, no benefit.
 - **Pre-release versions** (`1.0.0a1`, `.rc1`, `.dev1`) are excluded by pip's default resolver unless `--pre` is passed or an exact `==` pin is used. If the only patched version is a pre-release, flag this explicitly — the project may need to opt in to pre-releases or wait for the stable.
@@ -549,7 +566,7 @@ When CI uses a PM that has no committed lockfile (e.g. poetry-local + raw-pip-CI
 | pdm | `pdm lock --no-sync` | `pdm.lock` |
 | pipenv | `pipenv lock` | `Pipfile.lock` |
 | pip-tools | `pip-compile requirements.in` (add `--generate-hashes` if hashed) | `requirements.txt` |
-| pip (raw) | `python -m pip install '<pkg>>=X.Y.Z' --dry-run --report /tmp/pip-resolve.json --quiet`, then `jq '.install[] | select(.metadata.name=="<pkg>") | .metadata.version' /tmp/pip-resolve.json` | (JSON report only, no file commit) |
+| pip (raw) | `python -m pip install '<pkg>>=X.Y.Z' --dry-run --report /tmp/pip-resolve.json --quiet`, then `jq '.install[] | select(.metadata.name=="<pkg>") | .metadata.version' /tmp/pip-resolve.json` — **requires pip ≥ 23.2** (the `--report` JSON format landed in 23.2). Verify with `pip --version` first; older pip silently produces no report. | (JSON report only, no file commit) |
 
 > ⚠ Do **NOT** commit a generated lockfile from a PM that doesn't already have one committed. Dual-lockfile drift is exactly the bug class this skill exists to prevent — a generated `requirements.txt` alongside an authoritative `poetry.lock` will silently diverge on the next regen and you've doubled the surface area, not halved it.
 
@@ -613,7 +630,7 @@ If API confirms fix but UI still shows old count, reassure the user — it's UI 
 
 ## Platform notes
 
-- **Native-wheel risk**: bumps of compiled packages (`cryptography`, `lxml`, `numpy`, `pandas`, `pillow`, `psycopg2`, `cffi`, `bcrypt`, `pyodbc`, `pyarrow`, `grpcio`) can drop a platform wheel between versions. Verify wheels exist for every deploy-target platform tag (`manylinux2014_x86_64`, `manylinux2014_aarch64`, `musllinux_*`, `macosx_*`, `win_amd64`) AND every Python version (`cp310`, `cp311`, `cp312`) in the project's matrix before pinning. A missing wheel forces a source build on that target — silent CI break (slow build, may fail without compiler/headers).
+- **Native-wheel risk**: bumps of compiled packages (`cryptography`, `lxml`, `numpy`, `pandas`, `pillow`, `psycopg2`, `cffi`, `bcrypt`, `pyodbc`, `pyarrow`, `grpcio`) can drop a platform wheel between versions. Verify wheels exist for every deploy-target platform tag (`manylinux2014_x86_64`, `manylinux2014_aarch64`, `musllinux_*`, `macosx_*`, `win_amd64`) AND every Python version in the project's `requires-python` matrix (read from `project.requires-python` in `pyproject.toml`, or the project's CI test matrix) before pinning. A missing wheel forces a source build on that target — silent CI break (slow build, may fail without compiler/headers).
 - **Hash mismatches**: when dev and CI use different index URLs (private PyPI mirror, devpi), hash-pinned requirements can fail with `hash mismatch` — same file, different mirror's hash. Surface this if a hash check fails on a bump that otherwise looks correct.
 - **`requires_python` skew**: bumping to a target whose `requires_python` floor exceeds the project's configured floor (`project.requires-python` / `tool.poetry.dependencies.python`) breaks install on older Python deploys. Check the target's `requires_python` via PyPI metadata before pinning.
 - **Distribution-name normalization**: PyPI normalizes `_` / `-` / `.` and case in distribution names. `pkg_a`, `pkg-a`, `Pkg.A` all refer to the same distribution at resolve time, but lockfile entries may use any of these spellings. When parsing lockfiles, normalize both sides (`.lower().replace('_','-').replace('.','-')`) before comparing names.
