@@ -1,0 +1,255 @@
+---
+name: dependabot-triage-py
+description: Triage and fix Dependabot vulnerability alerts in Python repos (pip, poetry, uv, pdm, pipenv). v2.1 workflow with Standard (defensive) and Fast-Track (low-risk) modes — defensive minimal-patched versioning (PEP 440 ranges), exposure mapping (Public/API · Internal/Dev), CI workflow inspection, mandatory lockfile parity check across every PM that touches pyproject.toml / requirements*.txt, changelog scrape with BREAKING/DEPRECATED/MIGRATION flagging, and safety interlock before applying bumps. Fast-Track mode skips changelog + detailed exposure for Internal/Dev or CVSS<7 alerts, but parity check + dual-write are non-negotiable. Use when the user shares a Dependabot URL for a Python repo, asks to fix CVEs in a Python project, or asks which Python vulnerability to pick first.
+---
+
+# Dependabot Triage & Fix — Python (v2.1)
+
+> **Scaffold — not yet feature-complete.** Shared workflow is wired in; Python-specific blocks are marked `<!-- TODO(py): ... -->` and will be fleshed out in a follow-up. Some shared examples reference JS packages (axios, dompurify) — those are illustrative; the concepts apply to Python ecosystems.
+
+{{include _shared/fragments/intro-v2-1-highlights.md}}
+
+## Scope
+
+**Only Python repos** — pip, poetry, uv, pdm, pipenv ecosystems. Covers backend services (Django, Flask, FastAPI, Starlette, AIOHTTP), Lambda handlers, Celery workers, CLI tools, libraries, and notebook/script projects.
+
+**NOT covered**: JavaScript/TypeScript (use the `dependabot-triage` skill), Go modules, Java (Maven / Gradle), Ruby (bundler), Rust (cargo), .NET (NuGet). If the user shares a Dependabot URL pointing to a non-Python repo (check `.dependency.package.ecosystem`), say so explicitly and stop — don't apply this skill's mechanics to those ecosystems.
+
+The org-level fan-out *will* surface non-Python alerts (npm `axios`, Java packages). Filter those out of the ranked table or call them out as "out of scope for this skill — handle separately".
+
+## How to install (one-time, per engineer)
+
+```bash
+npx skills add akshayrao14/dependabot-triage-py
+```
+
+Installs into the right skills dir for your agent (Codex `~/.codex/skills`, Claude Code `~/.claude/skills`, or open-standard `~/.agents/skills`). Restart your agent session afterward — the skill should appear in `/skills` (Claude Code) or via the agent's skill discovery.
+
+{{include _shared/fragments/invocation-trigger-phrases.md}}
+
+## Prerequisites
+
+- `gh` CLI authenticated with repo access (`gh auth status`).
+- Local clone of the target repo (agent needs to read `pyproject.toml` / `requirements*.txt` / `Pipfile` + lockfiles).
+- `python`, plus every PM the repo uses for lockfile regen (`pip`, `poetry`, `uv`, `pdm`, `pipenv` as applicable).
+- Write permission to push a branch and open a PR (or accept that the agent stops at the commit step).
+
+{{include _shared/fragments/workflow-overview-diagram.md}}
+
+1. **Detect package managers in play** —
+   <!-- TODO(py): full PM detection block.
+        Committed manifests/lockfiles:
+          - requirements*.txt / requirements*.in (pip / pip-tools)
+          - Pipfile + Pipfile.lock (pipenv)
+          - pyproject.toml [tool.poetry] + poetry.lock
+          - pyproject.toml [tool.pdm] + pdm.lock
+          - pyproject.toml [project] + uv.lock (uv)
+          - constraints.txt (pip constraints — referenced via `-c`)
+        CI / container install grep:
+          - pip install -r ... / pip install --constraint ...
+          - poetry install / poetry lock
+          - uv sync / uv pip compile / uv pip install
+          - pdm install / pdm sync
+          - pipenv install / pipenv sync
+          - pip-compile
+        Mirror the JS step-1 "compare committed vs CI" logic.
+        Flag hash-pinned requirements (pip-tools `--generate-hashes`) — bump
+        breaks `pip install --require-hashes` unless hashes are regenerated. -->
+2. **Fetch alerts**:
+   <!-- TODO(py): mirror JS step 2 — filter `.dependency.package.ecosystem == "pip"`.
+        Mixed-ecosystem repos: surface non-pip alerts as out-of-scope.
+        Dependabot's pip ecosystem sometimes flags packages installed via apt/system
+        Docker base images, not pip — verify the package is actually in pip's
+        resolved tree (lockfile or `pip list`) before applying. -->
+{{include _shared/fragments/workflow-steps-3-4-rank-and-advisory.md}}
+{{include _shared/fragments/workflow-step-5-mode-selection.md}}
+
+{{include _shared/fragments/workflow-standard-mode-steps-6-8.md}}
+
+{{include _shared/fragments/workflow-fast-track-steps-6-8.md}}
+
+### Apply (steps 9–13) — identical in both modes, non-negotiable
+
+9. **Confirm branching strategy AND base branch.** Detect default branch via `gh repo view --json defaultBranchRef`; never hardcode `main`. Default: one PR per package off latest `origin/<detected-base>`.
+10. **Edit the manifest(s)** —
+    <!-- TODO(py): per-PM edit instructions.
+         - poetry: pin in [tool.poetry.dependencies] or [tool.poetry.group.*.dependencies]
+         - uv: [tool.uv] override-dependencies = ["pkg>=X.Y.Z"]
+         - pdm: [tool.pdm.resolution] overrides = { "pkg" = ">=X.Y.Z" }
+         - pip (raw) / pipenv: NO transitive override mechanism — must bump the
+           parent dep or use constraints.txt for pip.
+         Required in BOTH modes. Preserve environment markers and extras. -->
+11. **Regenerate every relevant lockfile** —
+    <!-- TODO(py): per-PM regen commands.
+         - poetry: poetry lock --no-update
+         - uv: uv lock
+         - pdm: pdm lock
+         - pipenv: pipenv lock
+         - pip-tools: pip-compile (with --generate-hashes if hash-pinned)
+         For PMs without a committed lockfile, generate temp + delete before commit. -->
+12. **Parity check** — for each PM detected in step 1, read its lockfile and assert every PM resolved to the *same* version of the target package. **Mismatch → abort PR in BOTH modes.**
+13. **Commit on the branch and open a PR** — with explicit user OK before pushing.
+
+{{include _shared/fragments/claude-will-not.md}}
+
+{{include _shared/fragments/fast-track-mode-full.md}}
+
+{{include _shared/fragments/prioritization-framework.md}}
+
+{{include _shared/fragments/exposure-mapping-intro.md}}
+
+### Categories
+
+<!-- TODO(py): two-category table (Client-Bundle dropped — Python rarely ships to browser).
+     - **Public/API**: Django views.py / urls.py / middleware.py / consumers.py (ASGI),
+       Flask/FastAPI/Starlette route decorators, AIOHTTP handlers, gRPC servicers,
+       Lambda entry handlers, Celery tasks consuming external input,
+       WSGI/ASGI entrypoints (wsgi.py, asgi.py).
+     - **Internal/Dev**: setup.py, setup.cfg, pyproject.toml [build-system], conftest.py,
+       tests/, scripts/, tox.ini, noxfile.py, Makefile-driven scripts, Sphinx config.
+     Note: Streamlit / Gradio / Dash apps ship Python server-side — treat as Public/API. -->
+
+### How to enumerate import sites
+
+<!-- TODO(py): enumeration commands.
+     Key gotcha: PyPI distribution name != Python import name often.
+     Examples: PyYAML/yaml, Pillow/PIL, opencv-python/cv2, scikit-learn/sklearn,
+     beautifulsoup4/bs4, python-dateutil/dateutil.
+
+     Resolve dist→import via:
+       python -c "from importlib.metadata import packages_distributions; \
+         print({m: d for m, d in packages_distributions().items() if '<dist>' in d})"
+     (Requires Python 3.10+; use `importlib_metadata` backport for 3.8/3.9.)
+
+     Then grep with the import name:
+       rg -t py "^(import |from ) *<import-name>([. ]|$)" -l | sort -u -->
+
+### How to present to the user
+
+<!-- TODO(py): adapt JS surface-summary format; drop Client-Bundle row.
+     Example output:
+       Exposure surface for requests in webhook-api:
+         Public/API     : 8 sites (e.g. app/routes/webhook.py, services/external.py, ...)
+         Internal/Dev   : 2 sites (e.g. tests/conftest.py, scripts/seed.py, ...) -->
+
+{{include _shared/fragments/exposure-mapping-cross-repo.md}}
+
+{{include _shared/fragments/branching-strategy.md}}
+
+{{include _shared/fragments/workflow-per-alert-intro.md}}
+
+<!-- TODO(py): workflow-per-alert numbered steps 1–8.
+     1. Dedupe: GitHub raises one alert per committed lockfile.
+     2. Get advisory: same `gh api repos/.../dependabot/alerts/<n>` — extract
+        first_patched_version, vulnerable_version_range, cvss.score.
+        Note: some Python alerts have GHSA only, no CVE — accept GHSA-prefix.
+     3. Locate: parse poetry.lock / uv.lock TOML, pdm.lock, Pipfile.lock JSON,
+        or requirements.txt.
+     4. Exposure Mapping: see Categories above.
+     5. Pick version (defensive minimal-patched, PEP 440):
+        - Single alert: >=X.Y.Z,<(X+1).0.0 of first_patched_version
+        - Cluster: same shape, X.Y.Z = max(first_patched_version) across cluster
+        - Verify NOT yanked via PyPI .releases[<ver>][0].yanked
+        - Check requires_python on PyPI doesn't exceed project's python_requires
+        - Verify wheel availability for every deploy-target platform/Python combo
+     6. Changelog scrape: PyPI project_urls.Changelog / Release notes URL via
+        `curl -s https://pypi.org/pypi/<pkg>/json | jq -r '.info.project_urls'`,
+        fall back to GitHub release notes (`gh release view`).
+     7. Safety interlock — PAUSE (identical to JS).
+     8. After user OK: edit manifest(s), regen lockfile(s), run Parity Check,
+        commit, ask before push. -->
+
+## Override pattern (Python)
+
+<!-- TODO(py): per-PM override mechanisms.
+     Dual-write semantics: write the override into EVERY PM that touches the project.
+
+     | PM | Override field | Regen command |
+     |---|---|---|
+     | pip (raw) | NO TRANSITIVE OVERRIDE — pin in requirements.txt or use constraints.txt | `pip install -r requirements.txt -c constraints.txt` |
+     | pip-tools | `*.in` source + compiled `*.txt` (with --generate-hashes if used) | `pip-compile requirements.in` |
+     | poetry | `[tool.poetry.dependencies]` direct pin; transitive needs explicit `poetry add` | `poetry lock --no-update` |
+     | uv | `[tool.uv] override-dependencies = ["pkg>=X.Y.Z"]` | `uv lock` |
+     | pdm | `[tool.pdm.resolution] overrides = { "pkg" = ">=X.Y.Z" }` | `pdm lock` |
+     | pipenv | Edit Pipfile [packages]; NO transitive override mechanism | `pipenv lock` |
+
+     CRITICAL: raw pip and pipenv have NO transitive-override mechanism. If a
+     transitive bump is required and only pip/pipenv are in play, the only fix is
+     to bump the parent dep or migrate to uv/pdm. Hard-ineligible for Fast-Track.
+
+     Preserve environment markers (e.g. `; python_version >= '3.10'`) and extras
+     (e.g. `cryptography[ssh]>=42.0.0`) when overriding. -->
+
+## Version range rules
+
+<!-- TODO(py): PEP 440 semantics — NOT semver.
+     - Default to defensive minimal patched. Use `>=X.Y.Z,<(X+1).0.0` where
+       X.Y.Z is the *minimal* version that supersets every applicable CVE patch.
+       (Universal — works in poetry, uv, pdm, pipenv, pip.)
+     - Poetry-only alias: `^X.Y.Z` (caret) — same as `>=X.Y.Z,<(X+1).0.0`.
+       Don't use in non-poetry contexts; not PEP 440 standard.
+     - Never use bare `>=X.Y.Z` without an upper bound (anti-major-bump).
+     - PEP 440 `~=X.Y.Z` (compatible release) is FINER than caret: `~=X.Y.Z`
+       means `>=X.Y.Z,<X.(Y+1).0`. Use only when minor-only flexibility wanted.
+     - For uv `override-dependencies` and pdm `overrides`, use full PEP 440
+       specifier (e.g. `pkg>=X.Y.Z,<(X+1).0.0`).
+     - Exact pin `==X.Y.Z` is common in `requirements.txt` for reproducibility;
+       surface trade-off (no patch-level updates) to user before defaulting to exact pin.
+     - Pre-release versions (1.0.0a1, .rc1, .dev1) are excluded by pip default unless
+       `--pre` flag or exact `==` pin. If the only patched version is pre-release,
+       flag explicitly. -->
+
+## Verify (Parity Check)
+
+<!-- TODO(py): per-PM patched-version resolution + parity assertion.
+     For each detected PM, read the lockfile (or query the PM directly) and
+     assert it resolves the target package to >= minimal_patched_version.
+
+     ```bash
+     # poetry: parse poetry.lock (TOML) for the resolved version
+     POETRY_VER=$(python -c "import tomllib; \
+       d=tomllib.load(open('poetry.lock','rb')); \
+       print(next((p['version'] for p in d['package'] if p['name']=='<pkg>'), ''))")
+
+     # uv: parse uv.lock (TOML)
+     UV_VER=$(python -c "import tomllib; \
+       d=tomllib.load(open('uv.lock','rb')); \
+       print(next((p['version'] for p in d.get('package',[]) if p['name']=='<pkg>'), ''))")
+
+     # pdm: pdm list --json + filter, OR parse pdm.lock TOML
+     PDM_VER=$(pdm list --json 2>/dev/null | jq -r '.[] | select(.name=="<pkg>") | .version')
+
+     # pipenv: parse Pipfile.lock (JSON)
+     PIPENV_VER=$(jq -r '.default["<pkg>"].version // .develop["<pkg>"].version' Pipfile.lock | sed 's/^==//')
+
+     # pip (raw) / pip-tools: read requirements.txt directly, or check venv
+     PIP_VER=$(grep -E '^<pkg>==' requirements.txt | sed 's/^<pkg>==//' | head -1)
+     ```
+
+     Then collect non-empty versions, sort -u, abort PR if count > 1.
+
+     Special case for raw pip/pip-tools: a `requirements.txt` with `<pkg>>=X.Y.Z`
+     (not pinned exactly) is NOT a lockfile — re-resolves on every `pip install`.
+     Parity check needs version-pinning verification, not just file presence.
+
+     Hash-pinned requirements (`--require-hashes`): after the bump, regenerate hashes
+     via `pip-compile --generate-hashes`. Forgetting breaks CI silently in dev,
+     loudly in prod. -->
+
+{{include _shared/fragments/commit-pr-format.md}}
+
+{{include _shared/fragments/after-merge-ui-lag.md}}
+
+## Platform notes
+
+<!-- TODO(py): Python-specific platform notes.
+     - **Native-wheel risk**: bumps of compiled packages (cryptography, lxml, numpy,
+       pandas, pillow, psycopg2, cffi, bcrypt, pyodbc, pyarrow) need platform-specific
+       wheel re-resolve. Check PyPI .releases[<ver>] filename list for manylinux /
+       musllinux / macosx / win_amd64 wheels matching every deploy target before
+       pinning. Patched version may drop a platform wheel → silent CI break.
+     - **Hash mismatches**: when dev and CI use different index URLs (private PyPI mirror,
+       devpi), hash-pinned requirements can fail with "hash mismatch" — same file,
+       different mirror's hash. Surface this if hash check fails.
+     - **requires_python skew**: bumping to a version with a higher Python floor than
+       the project supports breaks install on older Python deploys. -->
