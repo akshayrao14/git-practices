@@ -5,16 +5,7 @@ description: Triage and fix Dependabot vulnerability alerts in JavaScript/TypeSc
 
 # Dependabot Triage & Fix (v2.1)
 
-## v2.1 highlights
-
-- **Two modes — Standard and Fast-Track.** Standard is the defensive workflow (full exposure mapping, changelog scrape, safety interlock). Fast-Track is for low-risk bumps (Internal/Dev category, CVSS < 7, or user opt-in) — skips changelog + detailed exposure enumeration, single-confirmation interlock. Parity check + dual-write are non-negotiable in BOTH modes.
-- **CI workflow inspection — first-class detection step.** Lockfile alone doesn't tell you what runs in CI. CI may use a different PM than the committed lockfile (e.g. yarn.lock committed, CI runs `npm install`), or may run `<pm> install` instead of lockfile-strict `<pm> ci`. Detection drives the override + parity matrix.
-- **Defensive versioning** — pick the *minimal* patched version that fixes all in-cluster CVEs, not "latest in same major".
-- **Exposure Mapping** replaces heuristic reachability — categorize every import site (Public/API · Client-Bundle · Internal/Dev) and present surface area to the user instead of trying to prove unreachability.
-- **Mandatory lockfile parity check** — every PM that touches the manifest must resolve to the *same* version of the target package; mismatch aborts the PR. Required because CI/CD often runs a different PM than local sanity checks.
-- **Changelog scrape with safety interlock** (Standard mode) — fetch release notes / CHANGELOG between current and target, flag `BREAKING` / `DEPRECATED` / `MIGRATION` keywords, pause for explicit user confirmation before applying the bump.
-- **Auto-reversion** — if Fast-Track fails parity or the build fails post-bump, the skill offers to switch back to Standard mode for deeper analysis instead of grinding on retries.
-- **Org-level fan-out is opt-in only** — never auto-trigger; org enumeration burns API rate limit and surfaces non-JS noise.
+{{include _shared/fragments/intro-v2-1-highlights.md}}
 
 ## Scope
 
@@ -32,24 +23,7 @@ npx skills add akshayrao14/dependabot-triage
 
 Installs into the right skills dir for your agent (Codex `~/.codex/skills`, Claude Code `~/.claude/skills`, or open-standard `~/.agents/skills`). Restart your agent session afterward — the skill should appear in `/skills` (Claude Code) or via the agent's skill discovery.
 
-## How to invoke
-
-Trigger phrases (any of these will route the agent to this skill):
-
-- "Triage Dependabot alerts in `<repo>`"
-- "Which vuln should I fix first? <github.com/.../security/dependabot URL>"
-- "Fix Dependabot alert #<N> in this repo"
-- "Bump `<pkg>` to a non-vulnerable version"
-
-Provide one of:
-- Repo-level Dependabot security URL (`github.com/<org>/<repo>/security/dependabot`), OR
-- Repo path + alert number(s), OR
-- Just the package name if you already know the vuln.
-
-**Org-level fan-out is opt-in only.** Even if the user pastes an org URL (`github.com/orgs/<org>/security/alerts/dependabot`), do NOT auto-enumerate the entire org. Confirm first: "This will paginate alerts across every repo in the org and may use significant API rate limit. Proceed?" Then run only on `yes`. The trigger phrases for explicit org fan-out:
-- "Fan out across the org"
-- "Triage all repos in `<org>`"
-- "Run org-wide triage"
+{{include _shared/fragments/invocation-trigger-phrases.md}}
 
 ## Prerequisites
 
@@ -58,13 +32,7 @@ Provide one of:
 - `node`, `pnpm`, and/or `npm` installed for lockfile regeneration.
 - Write permission to push a branch and open a PR (or accept that the agent stops at the commit step).
 
-## What Claude will do (v2.1 workflow)
-
-```
-Detect PMs   →   Fetch + Rank   →   Mode Selection   →   { Standard | Fast-Track }   →   Apply + Parity Check   →   PR
-```
-
-The early steps (1–4) are the same in both modes. The middle steps branch by mode. The closing steps (regen + parity + PR) are identical and non-negotiable.
+{{include _shared/fragments/workflow-overview-diagram.md}}
 
 1. **Detect package managers in play** — before fetching alerts, figure out which PM(s) actually touch this repo, in *every* context (local install, CI install, container build). The override + parity matrix below depends on this.
    - **Committed lockfiles**: `ls package-lock.json pnpm-lock.yaml yarn.lock bun.lock* 2>/dev/null`.
@@ -82,21 +50,12 @@ The early steps (1–4) are the same in both modes. The middle steps branch by m
    - Filter `.dependency.package.ecosystem == "npm"` for this skill; surface non-JS alerts as out-of-scope.
    - Dedupe by `(repo, package)`.
    - **Mixed-ecosystem repos (Python + npm, Go + npm, etc.):** group alerts by ecosystem BEFORE presenting the ranked table. Output out-of-scope ecosystems as a separate blocked section at the top — e.g. "⛔ Out of scope for this skill (handle separately): pillow × 10 (pip), urllib3 × 2 (pip)." The user needs to see what's NOT being covered so they can act on it elsewhere. Never silently drop non-JS alerts.
-3. **Rank** using the prioritization framework (Impact × Exposure × CVSS).
-4. **Read advisory** for the top pick — extract `first_patched_version`, `vulnerable_version_range`, and `cvss.score`. For clusters, compute the *minimal* version that supersets every CVE patch.
-5. **Mode selection — recommend Fast-Track or Standard.** See "Fast-Track mode" section for the eligibility rules. Present a one-liner recommendation alongside the ranked summary, e.g. *"This is a dev-dependency; would you like to Fast-Track this fix?"* Default to Standard if the user is silent or ambiguous. Also default to Standard when no lockfile is committed for the CI PM — every CI build re-resolves transitives fresh, the override field is the only pin, and the case is Fast-Track-ineligible (no lockfile parity to check).
+{{include _shared/fragments/workflow-steps-3-4-rank-and-advisory.md}}
+{{include _shared/fragments/workflow-step-5-mode-selection.md}}
 
-### Standard mode (steps 6–8) — full defensive pipeline
+{{include _shared/fragments/workflow-standard-mode-steps-6-8.md}}
 
-6. **Exposure Mapping** — locate every import site of the target package in source, classify each into Public/API · Client-Bundle · Internal/Dev (see "Exposure Mapping" section). Output counts + sample paths.
-7. **Changelog scrape** — fetch release notes / `CHANGELOG.md` between currently-installed and target version. Grep for `BREAKING`, `DEPRECATED`, `MIGRATION`, `removed`, `dropped support`. Surface flagged lines verbatim.
-8. **Safety interlock — PAUSE.** Print the exposure summary + changelog flags + chosen target version to the user. Wait for explicit OK ("yes", "go", "looks fine", etc) before any file edits. If `BREAKING`/`DEPRECATED`/`MIGRATION` was flagged, require a second affirmative.
-
-### Fast-Track mode (steps 6–8) — low-risk shortcut
-
-6. **Lightweight exposure check** — run the import-site grep ONCE to confirm the dominant Exposure category, but do NOT enumerate paths. Output: `Exposure: Internal/Dev (8 sites)`. Stops here; no per-category breakdown, no path listing.
-7. **Skip changelog scrape.** (Fast-Track explicitly trades changelog visibility for speed; the eligibility rules below cap the blast radius this can cause.)
-8. **Single-confirmation interlock — PAUSE.** Print: target version + dominant Exposure category + CVSS + reason for Fast-Track eligibility. One affirmative ("yes", "go", "ship it") moves on; anything ambiguous falls back to Standard.
+{{include _shared/fragments/workflow-fast-track-steps-6-8.md}}
 
 ### Apply (steps 9–13) — identical in both modes, non-negotiable
 
@@ -106,98 +65,13 @@ The early steps (1–4) are the same in both modes. The middle steps branch by m
 12. **Parity check** — for each PM detected in step 1, read its lockfile (or `<pm> why` output) and assert every PM resolved to the *same* version of the target package. **Mismatch → abort PR in BOTH modes.** See "Auto-reversion on parity / build failure" for what to do next.
 13. **Commit on the branch and open a PR** — with explicit user OK before pushing.
 
-## What Claude will NOT do without confirmation
+{{include _shared/fragments/claude-will-not.md}}
 
-- Bump a direct dependency across major versions (breaking).
-- Apply a bump when changelog scrape flagged `BREAKING` / `DEPRECATED` / `MIGRATION` without a second user confirmation.
-- Open the PR if the lockfile parity check failed (Standard OR Fast-Track).
-- Skip dual-write override (mandatory in both modes).
-- **Use Fast-Track for hard-ineligible cases** — `Public/API` import sites combined with CVSS ≥ 7.0, `critical` severity advisory, or a required cross-major bump. Fall back to Standard regardless of user request; the safety floor is non-overridable.
-- Auto-fan-out across an org when the user only pasted a single repo URL (or vice versa).
-- Delete or replace a package.
-- Push to `main` / merge the PR.
-- Skip pre-commit hooks.
+{{include _shared/fragments/fast-track-mode-full.md}}
 
-## Fast-Track mode
+{{include _shared/fragments/prioritization-framework.md}}
 
-A streamlined branch of the workflow for low-risk bumps. Trades changelog visibility and detailed exposure enumeration for velocity. Lockfile integrity is **not** sacrificed — dual-write override and parity check are still mandatory.
-
-### Eligibility (any one is sufficient)
-
-- **Dev-only exposure** — the lightweight import-site check shows ≥ 90% of sites in `Internal/Dev` (configs, scripts, tests, tooling) and zero sites in `Public/API`.
-- **Low CVSS** — `security_advisory.cvss.score` < 7.0 *and* no Public/API import sites.
-- **User opt-in** — the user explicitly says `"fast-track"`, `"just bump it"`, `"don't bother with the changelog"`, or similar.
-
-If none apply, default to Standard mode.
-
-### Hard ineligibility (no override — always Standard)
-
-Fast-Track is refused — fall back to Standard with a one-line explanation — when:
-
-- The package has any `Public/API` import sites AND CVSS ≥ 7.0.
-- The advisory severity is `critical` (regardless of CVSS).
-- A cross-major bump is required (defensive minimum sits in the next major).
-- CI runs the PM's loose install command (not the lockfile-strict equivalent) without a committed lockfile for that PM. Every CI build re-resolves transitives fresh — the override field is the only pin on that side. Higher stakes; deserves Standard's full visibility. Also parity-check-ineligible: there's no committed lockfile to compare against.
-
-These are non-overridable. If the user explicitly requests Fast-Track in one of these cases, refuse politely and run Standard mode — the safety floor isn't user-configurable.
-
-### What Fast-Track skips
-
-| Step | Standard | Fast-Track |
-|---|---|---|
-| Exposure Mapping (per-site enumeration) | Yes — full path listing per category | Skipped — single-line dominant category only |
-| Changelog scrape | Yes — release notes + CHANGELOG.md, BREAKING/DEPRECATED/MIGRATION flagged | Skipped |
-| Safety interlock | Two confirmations if breaking-change keywords flagged | Single confirmation |
-
-### What Fast-Track keeps (non-negotiable)
-
-| Step | Both modes |
-|---|---|
-| Defensive minimal-patched version | Yes |
-| Dual-write override (see Override pattern) | Yes |
-| Both-lockfile regeneration | Yes |
-| Lockfile parity check + abort on mismatch | Yes |
-| Commit + push gated on explicit user OK | Yes |
-
-### Recommendation prompting
-
-When presenting the ranked summary in step 5, include a Mode column or one-line recommendation:
-
-```
-Rank | Repo            | Package           | CVSS | Exposure (dominant) | Recommended mode
-1    | webhook-ternity | @types/node       | 5.3  | Internal/Dev        | Fast-Track (Internal/Dev + low CVSS)
-2    | webhook-ternity | axios             | 7.5  | Public/API          | Standard (hard-ineligible: Public/API + CVSS ≥ 7)
-3    | webhook-ternity | follow-redirects  | 6.5  | Public/API          | Standard (Public/API exposure, no auto-rule fires; opt-in available)
-```
-
-Prompt verbatim where helpful: *"#1 is a dev-only @types bump with CVSS 5.3 — would you like to Fast-Track this fix?"*
-
-Note: a Client-Bundle XSS-sanitizer package (e.g. `dompurify`, `sanitize-html`) at CVSS < 7.0 *will* trigger the auto Fast-Track rule per the eligibility table. Surface the recommendation but flag it: *"This is a sanitizer-class package on Client-Bundle — Fast-Track eligible by CVSS, but you may want Standard to see the changelog. Your call."* Defer to user.
-
-### Auto-reversion on parity / build failure
-
-Fast-Track skips analysis but does not paper over failures. If, after the bump:
-
-- **Parity check fails** (npm and pnpm resolved to different versions), OR
-- The user runs `pnpm build` / `npm test` and reports a failure, OR
-- A pre-commit hook (lint, typecheck) fails
-
-…then offer to switch back to Standard mode for the same package:
-
-> *"Fast-Track hit `<failure>`. Want me to re-run this in Standard mode — pull the changelog and full exposure mapping so we can see what's actually changed?"*
-
-Do not silently retry Fast-Track on the same package after a failure. Either escalate to Standard or stop and ask. Repeated Fast-Track retries on a failing bump is exactly the trap this mode is designed to avoid.
-
-## Prioritization framework
-
-Three axes, in order:
-1. **Impact** — RCE > data exfil/SSRF > DoS > logic bugs
-2. **Exposure** — see Exposure Mapping below. NOT a heuristic guess about whether the vuln is reachable. A categorization of where the package is imported, presented to the user as a surface-area summary.
-3. **CVSS** — tiebreaker only. Raw score without exposure context misleads (e.g. SSRF in axios shows 4.8 but matters more if axios is in Public/API).
-
-## Exposure Mapping
-
-Replaces the prior heuristic "reachability" model. Goal: stop trying to PROVE a vuln is unreachable — false negatives are dangerous. Instead, enumerate every import site of the target package and bucket each one. The user makes the final risk call from the surface area.
+{{include _shared/fragments/exposure-mapping-intro.md}}
 
 ### Categories
 
@@ -240,78 +114,11 @@ If a single import site straddles categories (e.g. a util re-exported from both 
 
 The user reads the surface and decides whether the bump is worth the risk — Claude does not say "this is reachable" or "this is unreachable".
 
-### Cross-repo / org-wide ranking (opt-in)
+{{include _shared/fragments/exposure-mapping-cross-repo.md}}
 
-Only run when the user explicitly requested org fan-out. Apply on top of Impact × Exposure × CVSS:
+{{include _shared/fragments/branching-strategy.md}}
 
-- **Group by `(repo, package)` first.** GitHub raises N alerts per `(repo, package)` pair when there are N CVEs against the same dep. Collapse them — one bump fixes the cluster.
-- **Cluster bonus.** A `(repo, package)` pair with many alerts on a Public/API repo is the highest-ROI pick, even if individual CVSS scores are mid. Example: 30 HTTP-client alerts in a webhook service > 1 CVSS-9 alert in an internal CLI tool — single PR closes 30 alerts AND it's high-exposure.
-- **Repo character is a hint, not a verdict.** Backend/webhook repos *tend* to have Public/API import sites for HTTP libs; frontend repos *tend* to have Client-Bundle import sites for XSS sanitizers. Confirm via Exposure Mapping rather than assuming.
-
-Output a ranked table: rank, repo, package, exposure summary (Public/API / Client-Bundle / Internal/Dev counts), alerts-collapsed. Let user pick or accept default (rank 1).
-
-## Branching strategy
-
-**Default: one package per branch, one PR per branch.** Easier to review, easier to revert if a single override breaks something downstream.
-
-### Determine the base branch dynamically
-
-Do NOT hardcode `main`. The base may be `main`, `master`, `pre-release`, `develop`, etc. Detect at run time:
-
-```bash
-# Repo's configured default branch (preferred)
-gh repo view --json defaultBranchRef --jq .defaultBranchRef.name
-
-# Fallback if gh unavailable
-git symbolic-ref refs/remotes/origin/HEAD --short | sed 's@^origin/@@'
-```
-
-If the user has a different release flow (e.g. PRs target `pre-release`, then promoted to `main`), ASK them which branch this PR should target. Don't assume.
-
-### Always branch from the latest remote base, not local
-
-```bash
-BASE=<detected-or-confirmed-base>
-git fetch origin "$BASE"
-git checkout -b <new-branch> "origin/$BASE"
-```
-
-Local copy of the base may be stale; branching off it pollutes the PR diff with drift from missed upstream commits.
-
-**In multi-PR sessions, run `git fetch origin <base>` immediately before each new branch creation** — do not reuse a fetch from earlier in the session. Prior PRs opened in the same session may have already been merged (auto-merge, quick review), meaning `origin/<base>` has advanced since the last fetch. A stale fetch produces the same conflict-on-merge problem that fresh-fetching was meant to prevent.
-
-### Strategy options — ask the user
-
-Before starting, ask which strategy they want for this batch:
-- (a) **One PR per package** (default) — atomic, clean revert
-- (b) **One PR for multiple packages** — fewer PRs to review, but coupled revert
-- (c) **Stack onto an existing branch / open PR** — useful if the prior PR is still open and the user wants to bundle
-
-If user says "whatever's cleaner", pick (a).
-
-### Same package in multiple manifests
-
-When the same vulnerable package appears in more than one manifest (e.g. a root manifest AND a subpackage manifest), the default is **one PR per package touching all manifests** — one branch edits every affected manifest and regenerates every affected lockfile. This minimises the number of PRs and keeps the fix atomic.
-
-Only split into per-manifest PRs when exposure categories differ significantly across manifests (e.g. `Public/API` in the root manifest, `Internal/Dev` in the sub-manifest) and the user explicitly wants separate review gates for each exposure level.
-
-### Multi-PR sessions: sequential rebase conflict pattern
-
-When the user chooses strategy (a) — one PR per package — and multiple PRs target the same manifest, **every subsequent PR will conflict on the manifest** at the same insertion point (the overrides block). This is predictable and not an error. The resolution is always additive: keep the HEAD overrides and append the incoming PR's key.
-
-After each PR merges:
-1. `git fetch origin <base>`
-2. `git checkout <next-branch> && git rebase origin/<base>`
-3. Resolve the conflict by keeping all existing override keys and adding the new one.
-4. Regen the lockfile via the PM's lockfile-only install command (see PM table).
-5. `git add <manifest> <lockfile> && git rebase --continue`
-6. `git push --force-with-lease origin <next-branch>`
-
-Do NOT use `--force` (without lease) — it skips the safety check that aborts if the remote has moved beyond what you fetched.
-
-## Workflow per alert
-
-Assumes "Detect package managers in play" (workflow step 1) is already done — the override + parity matrix below depends on knowing which PMs touch this repo.
+{{include _shared/fragments/workflow-per-alert-intro.md}}
 
 1. **Dedupe**: GitHub raises one alert per committed lockfile. Two committed lockfiles (e.g. `package-lock.json` + `pnpm-lock.yaml`) = 2 alerts, 1 vuln. Fix the package once.
 2. **Get advisory**: `gh api repos/<org>/<repo>/dependabot/alerts/<n>` — extract `first_patched_version` and `vulnerable_version_range`. The list endpoint hides these. For clusters, fetch every alert in the cluster.
@@ -554,24 +361,9 @@ Environment drift between dev and CI/CD (any PM pair: npm-CI + pnpm-local, npm-C
 
 `npm install --package-lock-only` may print `up to date` even when the override forced re-resolution and the lockfile actually changed. Same for pnpm, yarn, and bun in some edge cases. ALWAYS run the verify commands above — they read the lockfile (or PM's own resolution graph) directly.
 
-## Commit/PR format
+{{include _shared/fragments/commit-pr-format.md}}
 
-- Title: `security: bump <pkg> to ^X.Y.Z (CVE-XXXX-YYYYY)`
-- Body: link Dependabot alert numbers, name advisory (GHSA + CVE), state CVSS, explain dependent chain, note no source changes if override-only.
-
-## After merge — UI lag
-
-GitHub's Dependabot UI counts often lag the actual fix by 5–30 minutes. If the user reports "only N alerts closed, you predicted M" shortly after merge, don't assume the fix was incomplete. Verify via API first:
-
-```bash
-# Open axios alerts in this repo right now
-gh api "repos/<org>/<repo>/dependabot/alerts?state=open&per_page=100" --jq '[.[] | select(.dependency.package.name=="<pkg>")] | length'
-
-# Fixed-today list (sanity check the merge actually closed them)
-gh api "repos/<org>/<repo>/dependabot/alerts?state=fixed&per_page=100" --jq '[.[] | select(.dependency.package.name=="<pkg>" and (.fixed_at | startswith("'"$(date -u +%Y-%m-%d)"'")))] | length'
-```
-
-If API confirms fix but UI still shows old count, reassure the user — it's UI lag, not a regression. The API is the source of truth. UI typically catches up within an hour after the lockfile push.
+{{include _shared/fragments/after-merge-ui-lag.md}}
 
 ## Platform notes
 
