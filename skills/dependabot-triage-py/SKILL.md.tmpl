@@ -177,14 +177,29 @@ The user reads the surface and decides whether the bump is worth the risk — Cl
 
 1. **Dedupe**: GitHub raises one alert per committed manifest/lockfile. A repo with both `requirements.txt` AND `pyproject.toml` may raise two alerts for the same vuln. Fix the package once; cover every PM in the override.
 2. **Get advisory**: `gh api repos/<org>/<repo>/dependabot/alerts/<n>` — extract `first_patched_version`, `vulnerable_version_range`, and `cvss.score`. The list endpoint hides these. For clusters, fetch every alert in the cluster. Python advisories may have a GHSA identifier only (no CVE) — accept GHSA-prefix advisories the same way.
-3. **Locate**: direct dep (in `pyproject.toml` / `requirements*.in` / `Pipfile [packages]`) or transitive? Parse the relevant lockfile:
+3. **Locate**: direct dep (in `pyproject.toml` / `requirements*.in` / `Pipfile [packages]`) or transitive? Parse the relevant lockfile.
+
+   > **`tomllib` requires Python ≥ 3.11.** For 3.10, `pip install tomli` and replace `import tomllib` with `import tomli as tomllib` (or use a try/except shim). The top-level `[[package]]` array key is the same across poetry / uv / pdm lockfiles, but each PM's *inner* `dependencies` field has a **different shape** — separate snippets per PM:
+
    ```bash
-   # poetry.lock — TOML; dependents of <pkg>
+   # poetry.lock — [package.dependencies] is a TOML TABLE (dict)
+   #   dep_name = "version-spec"  OR  dep_name = { version = "...", ... }
    python -c "import tomllib; d=tomllib.load(open('poetry.lock','rb')); \
-     print([(p['name'], p['version']) for p in d['package'] \
+     print([(p['name'], p['version']) for p in d.get('package',[]) \
             if '<pkg>' in (p.get('dependencies') or {})])"
 
-   # uv.lock / pdm.lock — same TOML shape (key is `package`)
+   # uv.lock — package.dependencies is a LIST of inline tables with .name
+   #   dependencies = [{ name = "foo" }, { name = "bar", marker = "..." }]
+   python -c "import tomllib; d=tomllib.load(open('uv.lock','rb')); \
+     print([(p['name'], p['version']) for p in d.get('package',[]) \
+            if any(dep.get('name')=='<pkg>' for dep in (p.get('dependencies') or []))])"
+
+   # pdm.lock — package.dependencies is a LIST of PEP 508 requirement STRINGS
+   #   dependencies = ['foo>=1.0', 'bar; python_version >= "3.10"']
+   python -c "import tomllib, re; d=tomllib.load(open('pdm.lock','rb')); \
+     print([(p['name'], p['version']) for p in d.get('package',[]) \
+            if any(re.match(r'^<pkg>(?:[<>=!~\[\(;\s]|$)', s) \
+                   for s in (p.get('dependencies') or []))])"
 
    # Pipfile.lock — JSON
    jq '(.default + .develop) | to_entries[]
@@ -234,10 +249,17 @@ The user reads the surface and decides whether the bump is worth the risk — Cl
    #    Strip trailing .git separately — repo names can contain dots
    #    (org/foo.bar is valid), so the second path segment is [^/]+, not [^/.]+.
    PKG_REPO=$(curl -s "https://pypi.org/pypi/<pkg>/json" \
-     | jq -r '.info.project_urls.Source // .info.project_urls.Repository // .info.project_urls.Homepage // .info.home_page' \
+     | jq -r '.info.project_urls.Source // .info.project_urls.Repository // .info.project_urls.Homepage // .info.home_page // empty' \
      | sed -E 's|.*github\.com/([^/]+/[^/]+).*|\1|; s|\.git$||')
-   gh release view "v<target>" --repo "$PKG_REPO" --json tagName,body,createdAt 2>/dev/null \
-     || gh release view "<target>" --repo "$PKG_REPO" --json tagName,body,createdAt
+   # Guard against null / non-github URLs — jq's // null cascade can yield "null"
+   # as a literal string, and projects hosted on GitLab / Codeberg / self-hosted
+   # don't match the sed pattern. Skip the gh path cleanly in those cases.
+   if [[ -n "$PKG_REPO" && "$PKG_REPO" != "null" && "$PKG_REPO" == */* ]]; then
+     gh release view "v<target>" --repo "$PKG_REPO" --json tagName,body,createdAt 2>/dev/null \
+       || gh release view "<target>" --repo "$PKG_REPO" --json tagName,body,createdAt
+   else
+     echo "no GitHub repo found for <pkg> on PyPI — skipping gh release path; falling back to sdist changelog grep below"
+   fi
 
    # 3. Fallback: download the sdist and grep the bundled CHANGELOG.
    #    Resolve the sdist URL from the same PyPI JSON — distribution-name
