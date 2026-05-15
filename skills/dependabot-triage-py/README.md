@@ -1,8 +1,8 @@
-# dependabot-triage-py (v2.1 — scaffold)
+# dependabot-triage-py (v2.1)
 
 [![skills.sh](https://skills.sh/akshayrao14/dependabot-triage-py)](https://skills.sh/akshayrao14/dependabot-triage-py)
 
-> **Scaffold — not yet feature-complete.** The shared workflow (fetch + rank + mode selection + branching + parity-check framework + commit/PR + after-merge) is wired in. Python-specific blocks (PM detection, override pattern, exposure categories, version syntax, parity-check commands, platform notes) are stubbed with `<!-- TODO(py): ... -->` markers in `SKILL.md` and will be fleshed out in a follow-up. Some shared examples reference JS packages (axios, dompurify) — those are illustrative; the concepts apply to Python ecosystems. For the production-ready JS sibling, see [dependabot-triage](https://github.com/akshayrao14/dependabot-triage).
+> **Note:** Python-specific workflow content (PM detection, override pattern, exposure categories, PEP 440 version syntax, per-PM parity-check commands, native-wheel platform notes) is fleshed out. A small number of examples in the shared-fragment sections still reference JS packages (`axios`, `dompurify`) — those are illustrative, not load-bearing; the concepts apply to Python ecosystems. For the JS sibling, see [dependabot-triage](https://github.com/akshayrao14/dependabot-triage).
 
 Agent Skill for triaging and fixing Dependabot vulnerability alerts in Python repos. Covers pip, poetry, uv, pdm, pipenv ecosystems. Compatible with any agent that supports the [Agent Skills standard](https://github.com/anthropics/skills) — Claude Code, Codex CLI, Gemini CLI, Cursor, etc.
 
