@@ -43,8 +43,8 @@ if [[ ! -f "$TMPL" ]]; then
   exit 1
 fi
 
-if [[ -f "$OUT" ]] && ! git -C "$REPO_ROOT" diff --quiet -- "$OUT" 2>/dev/null; then
-  echo "build-skill: WARNING — $OUT has uncommitted local edits that will be overwritten by the build." >&2
+if [[ -f "$OUT" ]] && ! git -C "$REPO_ROOT" diff --quiet HEAD -- "$OUT" 2>/dev/null; then
+  echo "build-skill: WARNING — $OUT has uncommitted local edits (staged or unstaged) that will be overwritten by the build." >&2
 fi
 
 SKILLS_REAL="$(realpath "$SKILLS_ROOT")"
