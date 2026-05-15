@@ -69,21 +69,44 @@ Detect PMs   →   Fetch + Rank   →   Mode Selection   →   { Standard | Fast
 The early steps (1–4) are the same in both modes. The middle steps branch by mode. The closing steps (regen + parity + PR) are identical and non-negotiable.
 
 1. **Detect package managers in play** — before fetching alerts, figure out which PM(s) actually touch this repo, in *every* context (local install, CI install, container build). The override + parity matrix below depends on this.
-   - **Committed manifests / lockfiles**:
+   - **Committed manifests / lockfiles** — start at repo root, then walk subdirectories for monorepo / multi-Lambda / multi-service layouts:
      ```bash
+     # Root + common manifest types
      ls requirements*.txt requirements*.in pyproject.toml Pipfile Pipfile.lock \
         poetry.lock uv.lock pdm.lock constraints*.txt 2>/dev/null
+
+     # Recursive — multi-package repos (Lambda monorepos, CDK / Serverless,
+     # multi-service workspaces). Excludes vendored / cache dirs.
+     find . \( -name 'requirements*.txt' -o -name 'requirements*.in' \
+              -o -name 'pyproject.toml' -o -name 'Pipfile' \
+              -o -name 'Pipfile.lock' -o -name 'poetry.lock' \
+              -o -name 'uv.lock' -o -name 'pdm.lock' \
+              -o -name 'constraints*.txt' \) \
+       -not -path '*/node_modules/*' -not -path '*/\.venv/*' \
+       -not -path '*/venv/*' -not -path '*/__pycache__/*' \
+       -not -path '*/\.git/*' -not -path '*/\.serverless/*' \
+       -not -path '*/build/*' -not -path '*/dist/*' 2>/dev/null | sort
      ```
+     Dependabot raises one alert per committed manifest, so the same package vulnerable in 3 per-Lambda `requirements.txt` files surfaces as 3 alerts. Per the "Same package in multiple manifests" rule in the branching strategy, the default fix is **one PR touching every affected manifest**.
    - **`pyproject.toml` PM tables** — a single `pyproject.toml` may carry config for more than one PM. Grep for the tables to see which are in play:
      ```bash
      rg -n '^\[(tool\.(poetry|pdm|uv)|project|build-system)\]' pyproject.toml 2>/dev/null
      ```
-   - **CI / container install commands** — grep CI configs and Dockerfiles for the actual install command:
+   - **CI / container / framework install commands** — grep CI configs, Dockerfiles, AND Python-deploy framework manifests for the actual install command. Lambda repos especially deploy pip *implicitly* through a framework plugin, not an explicit `pip install` line:
      ```bash
      rg -tg '*.yml' -tg '*.yaml' \
        '\b(pip (install|sync)|poetry (install|lock|sync)|uv (sync|pip|lock)|pdm (install|sync|lock)|pipenv (install|sync|lock)|pip-compile)\b' \
-       .github .gitlab-ci.yml Dockerfile* docker-compose*.yml circle.yml .circleci 2>/dev/null
+       .github .gitlab-ci.yml Dockerfile* docker-compose*.yml circle.yml .circleci \
+       serverless.yml serverless.yaml template.yaml template.yml \
+       cdk.json samconfig.toml 2>/dev/null
      ```
+   - **Implicit-resolve Python frameworks** — common deploy patterns where pip is invoked by a plugin/framework, not directly. The `pip install` line won't appear in CI; the framework manifest is the real driver:
+     - **Serverless Framework** (`serverless.yml` + `serverless-python-requirements` plugin) — each Lambda function may carry its own `requirements.txt`; plugin auto-resolves on `sls deploy`. Look for `fileName:` keys pointing at `requirements*.txt` paths and per-function `package:` blocks.
+     - **AWS SAM** (`template.yaml`) — each Lambda function's `CodeUri:` directory may contain its own `requirements.txt`; `sam build` calls pip per function.
+     - **AWS CDK** (`cdk.json` + `app.py`) — Python Lambdas built via the `PythonFunction` construct or Docker bundling; per-construct `requirements.txt` resolved at synth/deploy time.
+     - **Zappa** (`zappa_settings.json`) — single-project pip deploy.
+
+     These patterns hide the per-Lambda manifest split behind the framework. The recursive `find` above will surface every `requirements*.txt`; cross-reference each with the deploy manifest to figure out which Lambda owns it.
    - **Compare** committed manifests against CI install commands. If CI uses a different PM than the committed lockfile (e.g. `poetry.lock` committed but the Dockerfile runs `pip install -r requirements.txt`), expand the override + parity matrix accordingly (see "Override pattern" and "Verify (Parity Check)").
    - **Hash-pinned requirements flag** — if any `requirements*.txt` contains `--hash=sha256:` lines, this is a `pip-tools --generate-hashes` setup. Bumps require regenerating hashes; forgetting will break `pip install --require-hashes` in CI/prod.
    - **Don't ask the user up-front to classify the PM setup.** They often only know half the picture (their local context, not CI; or vice versa). Detect from manifest/lockfile + CI grep, show what was found, and ask only to confirm anomalies (e.g. *"I see `poetry.lock` committed but the Dockerfile runs `pip install -r requirements.txt` — confirm both are intentional?"*).
@@ -206,6 +229,8 @@ Three axes, in order:
 1. **Impact** — RCE > data exfil/SSRF > DoS > logic bugs
 2. **Exposure** — see Exposure Mapping below. NOT a heuristic guess about whether the vuln is reachable. A categorization of where the package is imported, presented to the user as a surface-area summary.
 3. **CVSS** — tiebreaker only. Raw score without exposure context misleads (e.g. SSRF in axios shows 4.8 but matters more if axios is in Public/API).
+
+> **CVSS=0 fallback.** Dependabot returns `security_advisory.cvss.score: 0` (or `null`) when the advisory hasn't been scored yet — common for fresh GHSAs. Don't let an unscored alert sink to the bottom of a CVSS-sorted ranking; fall back to `security_advisory.severity` (always populated). Approximate score mapping: `critical` ≈ 9.5, `high` ≈ 7.5, `medium` ≈ 5.0, `low` ≈ 2.0. Surface the fallback explicitly in the ranked table — e.g. `cvss: — (high)` rather than `cvss: 0` — so the user understands why a high-severity alert sits above a low-CVSS one.
 
 ## Exposure Mapping
 
