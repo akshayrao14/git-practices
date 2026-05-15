@@ -81,6 +81,7 @@ The early steps (1–4) are the same in both modes. The middle steps branch by m
    - Org URL → only after explicit user confirmation, then `gh api "orgs/<org>/dependabot/alerts?state=open&per_page=100"` (paginates across every repo).
    - Filter `.dependency.package.ecosystem == "npm"` for this skill; surface non-JS alerts as out-of-scope.
    - Dedupe by `(repo, package)`.
+   - **Mixed-ecosystem repos (Python + npm, Go + npm, etc.):** group alerts by ecosystem BEFORE presenting the ranked table. Output out-of-scope ecosystems as a separate blocked section at the top — e.g. "⛔ Out of scope for this skill (handle separately): pillow × 10 (pip), urllib3 × 2 (pip)." The user needs to see what's NOT being covered so they can act on it elsewhere. Never silently drop non-JS alerts.
 3. **Rank** using the prioritization framework (Impact × Exposure × CVSS).
 4. **Read advisory** for the top pick — extract `first_patched_version`, `vulnerable_version_range`, and `cvss.score`. For clusters, compute the *minimal* version that supersets every CVE patch.
 5. **Mode selection — recommend Fast-Track or Standard.** See "Fast-Track mode" section for the eligibility rules. Present a one-liner recommendation alongside the ranked summary, e.g. *"This is a dev-dependency; would you like to Fast-Track this fix?"* Default to Standard if the user is silent or ambiguous. Also default to Standard when no lockfile is committed for the CI PM — every CI build re-resolves transitives fresh, the override field is the only pin, and the case is Fast-Track-ineligible (no lockfile parity to check).
@@ -277,6 +278,8 @@ git checkout -b <new-branch> "origin/$BASE"
 
 Local copy of the base may be stale; branching off it pollutes the PR diff with drift from missed upstream commits.
 
+**In multi-PR sessions, run `git fetch origin <base>` immediately before each new branch creation** — do not reuse a fetch from earlier in the session. Prior PRs opened in the same session may have already been merged (auto-merge, quick review), meaning `origin/<base>` has advanced since the last fetch. A stale fetch produces the same conflict-on-merge problem that fresh-fetching was meant to prevent.
+
 ### Strategy options — ask the user
 
 Before starting, ask which strategy they want for this batch:
@@ -285,6 +288,26 @@ Before starting, ask which strategy they want for this batch:
 - (c) **Stack onto an existing branch / open PR** — useful if the prior PR is still open and the user wants to bundle
 
 If user says "whatever's cleaner", pick (a).
+
+### Same package in multiple manifests
+
+When the same vulnerable package appears in more than one manifest (e.g. root `package.json` AND `subpackage/package.json`), the default is **one PR per package touching all manifests** — one branch edits every affected `package.json` and regenerates every affected lockfile. This minimises the number of PRs and keeps the fix atomic.
+
+Only split into per-manifest PRs when exposure categories differ significantly across manifests (e.g. `Public/API` in the root manifest, `Internal/Dev` in the sub-manifest) and the user explicitly wants separate review gates for each exposure level.
+
+### Multi-PR sessions: sequential rebase conflict pattern
+
+When the user chooses strategy (a) — one PR per package — and multiple PRs target the same manifest, **every subsequent PR will conflict on `package.json`** at the same insertion point (the overrides block). This is predictable and not an error. The resolution is always additive: keep the HEAD overrides and append the incoming PR's key.
+
+After each PR merges:
+1. `git fetch origin <base>`
+2. `git checkout <next-branch> && git rebase origin/<base>`
+3. Resolve the conflict by keeping all existing override keys and adding the new one.
+4. Regen the lockfile: `npm install --package-lock-only` (or equivalent PM).
+5. `git add package.json package-lock.json && git rebase --continue`
+6. `git push --force-with-lease origin <next-branch>`
+
+Do NOT use `--force` (without lease) — it skips the safety check that aborts if the remote has moved beyond what you fetched.
 
 ## Workflow per alert
 
@@ -321,6 +344,8 @@ Assumes "Detect package managers in play" (workflow step 1) is already done — 
    grep -inE 'BREAKING|DEPRECATED|MIGRATION|removed|drop(ped)? support' /tmp/<pkg>/package/CHANGELOG.md | head -50
    ```
    Surface the flagged lines verbatim to the user — do not paraphrase. If `BREAKING` / `DEPRECATED` / `MIGRATION` appears, raise the safety interlock to "second confirmation required" before proceeding.
+
+   **Transitive-dep qualifier:** Before demanding a second confirmation, check whether the flagged package has any direct import sites in source (from the Exposure Mapping step). If zero direct imports exist — the package is purely transitive — state this explicitly alongside the flag: *"This flag appears in a package that is not directly imported by your source code. The breaking change is unlikely to affect you unless your code parses its error messages or hooks into its internals."* This collapses two confirmation rounds into one when the flag is clearly irrelevant to the calling code.
 7. **Safety interlock — PAUSE.** Print to the user:
    - chosen target version + reason (defensive minimal vs latest, why)
    - exposure surface (counts per category, sample paths)

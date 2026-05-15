@@ -17,14 +17,15 @@ Installs into the right skills dir for your agent (Codex `~/.codex/skills/`, Cla
 Given a Dependabot alert (URL, alert number, or just the package name), Claude will:
 
 1. Fetch the alert + advisory via `gh api`.
-2. Rank open alerts using a three-axis framework (Impact × Exposure × CVSS).
-3. **Map exposure** — enumerate every import site of the target package and bucket each into Public/API · Client-Bundle · Internal/Dev.
-4. **Pick a defensive minimal-patched version** — the smallest version that supersets every CVE patch in the cluster (not "latest in same major").
-5. **Scrape the changelog** between current and target version, flagging `BREAKING` / `DEPRECATED` / `MIGRATION` keywords.
-6. **PAUSE for explicit user OK** before applying the bump — required, with a second confirmation if changelog flags were raised.
-7. **Detect every PM in play** by inspecting committed lockfiles AND CI install commands (`.github/workflows`, Dockerfiles, etc.). Write the override into the field for every detected PM (`overrides` for npm/bun, `pnpm.overrides` for pnpm, `resolutions` for yarn). Regenerate every relevant lockfile.
-8. **Run a parity check across every PM.** If any pair resolves to different versions of the target package, abort and surface the mismatch — do not open the PR.
-9. Open a PR off the latest remote base branch — one PR per package by default.
+2. **Filter by ecosystem first.** For mixed-ecosystem repos (Python + npm, Go + npm, etc.), group alerts by ecosystem and output out-of-scope ones as a blocked section before the ranked table — e.g. `⛔ Out of scope: pillow × 10 (pip), urllib3 × 2 (pip)`. Non-JS alerts are never silently dropped.
+3. Rank open npm alerts using a three-axis framework (Impact × Exposure × CVSS).
+4. **Map exposure** — enumerate every import site of the target package and bucket each into Public/API · Client-Bundle · Internal/Dev.
+5. **Pick a defensive minimal-patched version** — the smallest version that supersets every CVE patch in the cluster (not "latest in same major").
+6. **Scrape the changelog** between current and target version, flagging `BREAKING` / `DEPRECATED` / `MIGRATION` keywords. If the flagged package has zero direct import sites (purely transitive), this is stated explicitly alongside the flag — avoids unnecessary double-confirmation rounds for irrelevant breaking changes.
+7. **PAUSE for explicit user OK** before applying the bump — required, with a second confirmation if changelog flags were raised and the package is directly imported.
+8. **Detect every PM in play** by inspecting committed lockfiles AND CI install commands (`.github/workflows`, Dockerfiles, etc.). Write the override into the field for every detected PM (`overrides` for npm/bun, `pnpm.overrides` for pnpm, `resolutions` for yarn). Regenerate every relevant lockfile. When the same package is vulnerable in multiple manifests, all are fixed in the same PR by default.
+9. **Run a parity check across every PM.** If any pair resolves to different versions of the target package, abort and surface the mismatch — do not open the PR.
+10. Open a PR off the latest remote base branch — one PR per package by default. In multi-PR sessions, `git fetch origin <base>` runs immediately before each branch creation (prior PRs may have already merged).
 
 Full behavior spec is in [`SKILL.md`](./SKILL.md).
 
@@ -145,6 +146,19 @@ Org-wide triage requires explicit phrasing — do NOT auto-fan-out:
 - "Fan out across the org"
 - "Triage all repos in `<org>`"
 - "Run org-wide triage"
+
+## Multi-PR sessions
+
+When fixing multiple packages one-PR-per-package against the same base branch, every subsequent PR will conflict on `package.json` at the same overrides insertion point — this is expected and predictable. After each PR merges:
+
+1. `git fetch origin <base>`
+2. `git checkout <next-branch> && git rebase origin/<base>`
+3. Resolve the conflict: keep all existing override keys, add the incoming one.
+4. Regen the lockfile (`npm install --package-lock-only` or equivalent).
+5. `git add package.json package-lock.json && git rebase --continue`
+6. `git push --force-with-lease origin <next-branch>`
+
+Claude handles this loop automatically — ping it after each merge.
 
 ## Updating
 
