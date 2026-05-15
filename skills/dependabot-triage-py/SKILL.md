@@ -1,6 +1,6 @@
 ---
 name: dependabot-triage-py
-description: Triage and fix Dependabot vulnerability alerts in Python repos (pip, poetry, uv, pdm, pipenv). v2.1 workflow with Standard (defensive) and Fast-Track (low-risk) modes — defensive minimal-patched versioning (PEP 440 ranges), exposure mapping (Public/API · Internal/Dev), CI workflow inspection, mandatory lockfile parity check across every PM that touches pyproject.toml / requirements*.txt, changelog scrape with BREAKING/DEPRECATED/MIGRATION flagging, and safety interlock before applying bumps. Fast-Track mode skips changelog + detailed exposure for Internal/Dev or CVSS<7 alerts, but parity check + dual-write are non-negotiable. Use when the user shares a Dependabot URL for a Python repo, asks to fix CVEs in a Python project, or asks which Python vulnerability to pick first.
+description: '[scaffold — Python-specific blocks pending] Triage and fix Dependabot vulnerability alerts in Python repos (pip, poetry, uv, pdm, pipenv). v2.1 workflow with Standard (defensive) and Fast-Track (low-risk) modes — defensive minimal-patched versioning (PEP 440 ranges), exposure mapping (Public/API · Internal/Dev), CI workflow inspection, mandatory lockfile parity check across every PM that touches pyproject.toml / requirements*.txt, changelog scrape with BREAKING/DEPRECATED/MIGRATION flagging, and safety interlock before applying bumps. Fast-Track mode skips changelog + detailed exposure for Internal/Dev or CVSS<7 alerts, but parity check + dual-write are non-negotiable. Use when the user shares a Dependabot URL for a Python repo, asks to fix CVEs in a Python project, or asks which Python vulnerability to pick first.'
 ---
 
 # Dependabot Triage & Fix — Python (v2.1)
@@ -17,6 +17,8 @@ description: Triage and fix Dependabot vulnerability alerts in Python repos (pip
 - **Changelog scrape with safety interlock** (Standard mode) — fetch release notes / CHANGELOG between current and target, flag `BREAKING` / `DEPRECATED` / `MIGRATION` keywords, pause for explicit user confirmation before applying the bump.
 - **Auto-reversion** — if Fast-Track fails parity or the build fails post-bump, the skill offers to switch back to Standard mode for deeper analysis instead of grinding on retries.
 - **Org-level fan-out is opt-in only** — never auto-trigger; org enumeration burns API rate limit and surfaces non-JS noise.
+
+> **In scope for this skill**: pip, poetry, uv, pdm, pipenv.
 
 ## Scope
 
@@ -321,7 +323,7 @@ After each PR merges:
 1. `git fetch origin <base>`
 2. `git checkout <next-branch> && git rebase origin/<base>`
 3. Resolve the conflict by keeping all existing override keys and adding the new one.
-4. Regen the lockfile via the PM's lockfile-only install command (see PM table).
+4. Regen the lockfile via the PM's lockfile-only install command (see the Override pattern section in this skill).
 5. `git add <manifest> <lockfile> && git rebase --continue`
 6. `git push --force-with-lease origin <next-branch>`
 

@@ -16,6 +16,8 @@ description: Triage and fix Dependabot vulnerability alerts in JavaScript/TypeSc
 - **Auto-reversion** — if Fast-Track fails parity or the build fails post-bump, the skill offers to switch back to Standard mode for deeper analysis instead of grinding on retries.
 - **Org-level fan-out is opt-in only** — never auto-trigger; org enumeration burns API rate limit and surfaces non-JS noise.
 
+> **In scope for this skill**: npm, pnpm, yarn (classic/berry), bun.
+
 ## Scope
 
 **Only JavaScript / TypeScript repos** — npm, pnpm, yarn, bun ecosystems. Covers backend Node.js services, frontend bundles (CSR), server-rendered apps (SSR), and mixed SSR+CSR frameworks (Next.js, Nuxt, Remix, SvelteKit).
@@ -303,7 +305,7 @@ After each PR merges:
 1. `git fetch origin <base>`
 2. `git checkout <next-branch> && git rebase origin/<base>`
 3. Resolve the conflict by keeping all existing override keys and adding the new one.
-4. Regen the lockfile via the PM's lockfile-only install command (see PM table).
+4. Regen the lockfile via the PM's lockfile-only install command (see the Override pattern section in this skill).
 5. `git add <manifest> <lockfile> && git rebase --continue`
 6. `git push --force-with-lease origin <next-branch>`
 

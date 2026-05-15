@@ -8,11 +8,16 @@
 #   {{include <path-relative-to-skills-root>}}
 #
 # Rules:
+#   - The include directive must occupy the entire line (regex anchored ^...$).
+#     Mid-line or in-prose `{{include ...}}` text is emitted verbatim.
 #   - Path resolved relative to skills/ root.
 #   - Single-pass only (no recursive resolution).
 #   - Path traversal outside skills/ is rejected.
 #   - Missing include file aborts with source-line reference.
 #   - Reserved skill names: _shared and any name starting with _ or .
+#
+# Pre-build: if the destination SKILL.md has uncommitted local edits, prints a
+# warning before overwriting (since the canonical source of truth is .tmpl).
 
 set -euo pipefail
 
@@ -36,6 +41,10 @@ OUT="$SKILLS_ROOT/$SKILL/SKILL.md"
 if [[ ! -f "$TMPL" ]]; then
   echo "build-skill: template not found: $TMPL" >&2
   exit 1
+fi
+
+if [[ -f "$OUT" ]] && ! git -C "$REPO_ROOT" diff --quiet -- "$OUT" 2>/dev/null; then
+  echo "build-skill: WARNING — $OUT has uncommitted local edits that will be overwritten by the build." >&2
 fi
 
 SKILLS_REAL="$(realpath "$SKILLS_ROOT")"
