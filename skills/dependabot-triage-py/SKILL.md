@@ -107,6 +107,13 @@ The early steps (1–4) are the same in both modes. The middle steps branch by m
      - **Zappa** (`zappa_settings.json`) — single-project pip deploy.
 
      These patterns hide the per-Lambda manifest split behind the framework. The recursive `find` above will surface every `requirements*.txt`; cross-reference each with the deploy manifest to figure out which Lambda owns it.
+   - **Ghost manifests (unused snapshots) — propose deletion, not a bump.** Not every committed `requirements*.txt` is wired into a deploy. A common Python-on-AWS pattern: someone committed a `pip freeze` snapshot from a dev machine alongside the lambda code "for reference"; the framework actually builds from a different file (e.g. a shared layer source at repo root). Dependabot will keep raising alerts on the snapshot anyway. Tells that a manifest is a ghost:
+     - Lines like `<pkg> @ file:///AppleInternal/...` (Mac system Python freeze leak), `file:///private/var/folders/...`, `file:///usr/local/...`, or any `file://` URL pointing at a path that only exists on one engineer's machine — these can't `pip install` outside that machine, so the file can't be the deploy source.
+     - No reference to this manifest in any deploy config (`serverless.yml` `pythonRequirements.fileName`, SAM `CodeUri`, CDK construct entry, Zappa `zappa_settings.json`, Dockerfile `COPY ... requirements.txt`, CI `pip install -r ...`).
+     - `package.individually: false` (Serverless Framework) rules out per-handler-dir bundling — so a `lambdas/<fn>/requirements.txt` *can't* be a deploy source.
+     - Git history shows only Dependabot bumps, never a human edit since initial commit.
+
+     When the cross-reference confirms a manifest is unused: surface to user as a deletion candidate, not a bump candidate. Bumping a ghost manifest closes alerts but leaves the dead file in place to generate the next round. Deletion is the structural fix. (Project-specific knowledge — e.g. "in repo X, `lambdas/<fn>/requirements.txt` files are ghosts" — should be recorded in repo CLAUDE.md or agent memory, not here.)
    - **Compare** committed manifests against CI install commands. If CI uses a different PM than the committed lockfile (e.g. `poetry.lock` committed but the Dockerfile runs `pip install -r requirements.txt`), expand the override + parity matrix accordingly (see "Override pattern" and "Verify (Parity Check)").
    - **Hash-pinned requirements flag** — if any `requirements*.txt` contains `--hash=sha256:` lines, this is a `pip-tools --generate-hashes` setup. Bumps require regenerating hashes; forgetting will break `pip install --require-hashes` in CI/prod.
    - **Don't ask the user up-front to classify the PM setup.** They often only know half the picture (their local context, not CI; or vice versa). Detect from manifest/lockfile + CI grep, show what was found, and ask only to confirm anomalies (e.g. *"I see `poetry.lock` committed but the Dockerfile runs `pip install -r requirements.txt` — confirm both are intentional?"*).
@@ -404,6 +411,7 @@ Assumes "Detect package managers in play" (workflow step 1) is already done — 
 4. **Exposure Mapping**: see "Exposure Mapping" section. Categorize every import site (Public/API · Internal/Dev) and produce a surface summary for the user.
 5. **Pick version (defensive minimal-patched, PEP 440)**:
    - Single alert: `>=X.Y.Z,<(X+1).0.0` of `first_patched_version`.
+   - **Do NOT trust an open Dependabot PR's target version.** Dependabot opens its PR against the alert that first triggered it; its target is `first_patched_version` of *that one alert*, not `max(first_patched_version)` across the full cluster of related alerts. In practice, a Dependabot PR can underpatch by several CVEs — leaving alerts open after merge. Always recompute the defensive minimum yourself across every alert in the cluster (see the cluster command below) and compare against the PR's target. If the PR underpatches, either re-target it or open a fresh PR at the correct version.
    - Cluster: same shape, `X.Y.Z = max(first_patched_version)` across every CVE in the cluster — i.e. the *minimal* version that supersets every patch. Compute via:
      ```bash
      for n in <alert-numbers>; do
