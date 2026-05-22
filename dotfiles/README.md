@@ -138,6 +138,67 @@ Resets terminal text formatting (`tput sgr0`). Used internally by aliases.
 
 ---
 
+## rao-terminal-theme — per-repo deterministic terminal colours
+
+Shipped as `dotfiles/rao-terminal-theme.sh`. Sourced by `bashrc.overrides` if symlinked into `~/.config/`.
+
+Each git repo under your scope dir gets a unique colour scheme picked deterministically from the repo's folder name. Same name → same colours, every machine, every terminal, forever. Tab title shows `repo (branch)`. Light/dark modes supported; can follow GNOME's system colour-scheme automatically.
+
+### Install
+
+```bash
+# 1. Clone this repo somewhere (e.g. ~/tern-work/git-practices)
+# 2. Symlink the theme engine into ~/.config so bashrc.overrides can find it
+ln -s ~/tern-work/git-practices/dotfiles/rao-terminal-theme.sh ~/.config/rao-terminal-theme.sh
+
+# 3. Symlink bashrc.overrides into your home dir (or source it however you prefer)
+ln -s ~/tern-work/git-practices/dotfiles/bashrc.overrides ~/rao_bashrc_overrides
+
+# 4. Ensure ~/.bashrc sources it (Debian/Ubuntu default already does):
+#    if [ -f ~/rao_bashrc_overrides ]; then . ~/rao_bashrc_overrides; fi
+
+# 5. (Optional) Set your scope dir if it isn't ~/tern-work
+echo 'export RAO_THEME_SCOPE_DIR=$HOME/my-projects' >> ~/.bashrc   # before sourcing
+
+# 6. Open a new terminal, cd into a repo. Background colour should change.
+```
+
+### Commands
+
+| Command                          | Description                                                |
+| -------------------------------- | ---------------------------------------------------------- |
+| `rao-theme`                      | Show current repo, hue, mode, accent                       |
+| `rao-theme list`                 | List all repos in scope dir + their assigned hues          |
+| `rao-theme hues`                 | List available hues                                        |
+| `rao-theme preview <hue\|repo>`  | Preview a palette without committing                       |
+| `rao-theme set <hue>`            | Pin current repo to a hue (writes `.rao-theme` in root)    |
+| `rao-theme unset`                | Remove `.rao-theme` pin                                    |
+| `rao-theme light` / `dark`       | Force light/dark mode (persists)                           |
+| `rao-theme auto`                 | Follow GNOME `color-scheme` (default)                      |
+| `rao-theme toggle`               | Flip light ↔ dark                                          |
+| `rao-theme reapply`              | Re-apply current theme (after manual mode changes)         |
+| `rao-theme reset`                | Reset terminal to default colours                          |
+
+### How the picker works
+
+Repo folder name → `cksum` → modulo 8 → index into `[red, orange, yellow, green, cyan, blue, purple, magenta]`. Deterministic, no central registry. With ~30 repos and 8 hues, expect ~2–3 collisions — resolve any that bother you by dropping a `.rao-theme` file in the repo root containing one of the hue names. That file commits with the repo, so anyone using this script gets the same override.
+
+### Worktrees
+
+Worktrees inherit their parent repo's colour automatically (the engine reads `git rev-parse --git-common-dir` rather than `$PWD`).
+
+### Exported environment
+
+Each `cd` exports: `RAO_THEME_REPO`, `RAO_THEME_HUE`, `RAO_THEME_MODE`, `RAO_THEME_ACCENT`. Hook your prompt, tmux status, or whatever else to these if you want matching accents.
+
+### Compatibility
+
+- Tested on GNOME Terminal (VTE). Should work on any emulator honouring OSC 10/11/12 (Alacritty, Kitty, WezTerm, foot, iTerm2, etc).
+- Inside tmux, escape sequences are wrapped in DCS passthrough automatically. Requires `set -g allow-passthrough on` in `~/.tmux.conf`.
+- Bash only. Adapting to zsh = swap `PROMPT_COMMAND` for `precmd_functions`.
+
+---
+
 ## License
 
 MIT — use freely, attribution appreciated but not required.
