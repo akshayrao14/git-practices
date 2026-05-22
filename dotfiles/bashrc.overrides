@@ -142,10 +142,10 @@ alias ag='echo -e "Running $(tput setaf 3)antigravity -r" && RESET_FORMATTING &&
 alias full_diff='echo -e "Running $(tput setaf 3)git diff --no-ext-diff pre-release > full_diff.txt" && RESET_FORMATTING && git diff --no-ext-diff pre-release > full_diff.txt && echo "full_diff.txt created"'
 
 #############################################################
-## RAO TERMINAL THEME — per-repo deterministic colours     ##
+## REPOHUE — per-repo deterministic terminal colours       ##
 #############################################################
 # Source the theme engine. Symlinked from git-practices/dotfiles/.
-# Override scope dir by setting RAO_THEME_SCOPE_DIR before sourcing.
-if [ -f ~/.config/rao-terminal-theme.sh ]; then
-    . ~/.config/rao-terminal-theme.sh
+# Override scope dir by setting REPOHUE_SCOPE_DIR before sourcing.
+if [ -f ~/.config/repohue.sh ]; then
+    . ~/.config/repohue.sh
 fi
