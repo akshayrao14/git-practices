@@ -5,7 +5,7 @@ if command -v starship &>/dev/null; then
 fi
 
 ## ---- MAKE YOUR CHANGES HERE ---- ##
-export AWS_PROFILE=
+export AWS_PROFILE=rao-power
 PATH=$PATH:/usr/local/bin:/home/raosa/tern-work/git-practices/scripts
 ## ---- END OF CHANGES ---- ##
 
@@ -97,7 +97,7 @@ alias gmm='echo -e "Running $(tput setaf 3)git merge main" && RESET_FORMATTING &
 
 alias gdel='echo -e "Running $(tput setaf 3)git branch -D <branch>" && RESET_FORMATTING && git branch -D '
 
-alias sso='echo -e "Running aws sso login --profile ${AWS_PROFILE}" && aws sso login --profile ${AWS_PROFILE}'
+alias sso='echo -e "Running aws sso login --profile ${AWS_PROFILE}\n\nTo run sso with $(tput setaf 3)a different AWS profile$(tput sgr0), set $(tput setaf 3)AWS_PROFILE=\"<profile-name>\"$(tput sgr0) and run sso again\n" && RESET_FORMATTING && aws sso login --profile ${AWS_PROFILE}'
 alias ssoLogin=sso
 alias ssoLogout='echo -e "Running aws sso logout --profile ${AWS_PROFILE}" && aws sso logout --profile ${AWS_PROFILE}'
 
@@ -108,6 +108,8 @@ alias midev='echo -e "Running $(tput setaf 3)merge_into.sh development" && RESET
 alias midemo='echo -e "Running $(tput setaf 3)merge_into.sh demo" && RESET_FORMATTING && merge_into.sh demo'
 
 alias wd=windsurf
+
+alias xc="nemo . &"
 
 alias sz='echo -e "Running $(tput setaf 3)du -sh .[!.]* * 2>/dev/null | sort -hr | less" && RESET_FORMATTING && du -sh .[!.]* * 2>/dev/null | sort -hr | less'
 
@@ -138,3 +140,12 @@ alias prdiff='echo -e "Running $(tput setaf 3)git diff origin/pre-release...HEAD
 alias ag='echo -e "Running $(tput setaf 3)antigravity -r" && RESET_FORMATTING && antigravity -r'
 
 alias full_diff='echo -e "Running $(tput setaf 3)git diff --no-ext-diff pre-release > full_diff.txt" && RESET_FORMATTING && git diff --no-ext-diff pre-release > full_diff.txt && echo "full_diff.txt created"'
+
+#############################################################
+## REPOHUE — per-repo deterministic terminal colours       ##
+#############################################################
+# Source the theme engine. Symlinked from git-practices/dotfiles/.
+# Override scope dir by setting REPOHUE_SCOPE_DIR before sourcing.
+if [ -f ~/.config/repohue.sh ]; then
+    . ~/.config/repohue.sh
+fi
