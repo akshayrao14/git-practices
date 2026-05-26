@@ -13,6 +13,7 @@ set -euo pipefail
 declare -A MIRROR_REMOTES=(
   [dependabot-triage]="https://github.com/akshayrao14/dependabot-triage.git"
   [dependabot-triage-py]="https://github.com/akshayrao14/dependabot-triage-py.git"
+  [session-loop]="https://github.com/akshayrao14/session-loop.git"
 )
 
 SKILL="${1:-}"
