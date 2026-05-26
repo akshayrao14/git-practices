@@ -22,6 +22,8 @@ Existing agent primitives — context compaction, memory, in-session task lists 
 
 All commands also auto-trigger from natural language phrases — `/session-wrap` from "let's stop here", `/session-catchup` from "pick up where we left off", etc.
 
+**New to this? Read [`WALKTHROUGH.md`](WALKTHROUGH.md)** — a concrete day-1, day-2, day-3 walkthrough with sample outputs for every command. The rest of this README is reference; the walkthrough is the on-ramp.
+
 ## Artifact contract
 
 `session-loop` writes to three files in the project root. The contract is convention — no command hard-fails if a file is missing, but the suite is most useful when all three exist.
@@ -139,6 +141,30 @@ If your project already has `MIGRATION_LEDGER.md` (append-only, AD-NNN format, s
 - `/session-wrap` appends new ADs for any in-session decisions and writes its `UPDATES.md` entry in a fresh `UPDATES.md` (separate from the ledger).
 
 No project structure changes required. The ledger's existing conventions stay in charge.
+
+## Beyond engineering
+
+The core ideas — append-only ledger, handoff/rehydrate, drift check, ADR-style decisions, open-loops, idempotency — are domain-agnostic. The current *implementation surface* (probes, gates, examples) is engineering-flavored, but the loop applies to any multi-day work where session boundaries cost you context.
+
+Side-by-side mapping of how each concept translates per domain:
+
+| Concept | Engineering | Product management | Research | Long-form writing |
+|---|---|---|---|---|
+| **Wrap safety gate** | `git status` clean; no secrets uncommitted; no half-applied Helm/Terraform | Open Notion/Google docs saved; draft Slack/email reviewed; no unposted Loom uploads | Notes synced to repo; recent papers cited; experiment results captured | Draft saved; version tag applied; reviewer comments addressed |
+| **Verification command** | `git rev-parse HEAD`, `kubectl get pods`, `terraform plan -detailed-exitcode` | Linear issue state, Slack thread state, last-edit timestamp on key Notion page | Citation graph query, last-pulled-from-arxiv timestamp, dataset checksum | Word count delta, reviewer comment count, last published version diff |
+| **Irreversible boundary** | `helm install` succeeded, `terraform apply` succeeded, `gh pr merge`, image pushed | Message sent to exec channel, Linear issue marked Shipped, contract signed, vendor selected | Preprint posted to arXiv, dataset published, IRB filing submitted | Sent to editor, published, retracted/erratum filed |
+| **Ledger entry example** | "Use Cognito Token Bridge for interim auth (AD-007). Supersedes manual JWT minting." | "Defer Q3 launch to Q4 after stakeholder review. Supersedes earlier Q3 commit; cause: legal review timeline." | "Drop hypothesis H2 — invalidated by experiment 4 cohort B." | "Cut chapter 7 — pacing review by editor; consolidate into chapter 6 epilogue." |
+| **Open-loops source** | In-repo `TODO`/`FIXME`, open PRs, agent task list | Linear issues assigned + mentioned, Slack mentions unread, action items from last meeting notes | Reviewer comments on draft, undelivered experiment runs, papers queued for response | Beta-reader feedback, editor margin notes, unresearched citations |
+
+### How to use today vs how it will get better
+
+The narrative + ledger structure works for any domain right now. PMs, researchers, and writers can productively use `/session-wrap`, `/session-catchup`, `/session-decide`, and `/session-open-loops` — they capture intent, preserve decisions, and re-establish context the same way they do for engineers.
+
+What does **not** work yet for non-engineering domains: the auto-probes inside `/session-wrap`, `/session-drift`, and `/session-checkpoint` look for engineering signals (Helm, Terraform, kubectl, git internals). In a Notion-and-Linear workflow those gates no-op silently and drift checks have nothing to compare against. Outcome: the framework runs but the auto-checks feel empty.
+
+**Workaround today**: in `/session-wrap`, supply your own verification commands manually when prompted (Linear issue queries, Notion last-edit URLs, calendar queries). They land in `NEXT_SESSION.md` and `/session-catchup` will re-run them next session. Same mechanics, different probes.
+
+**Planned (not built)**: a lightweight profile system (`.session-loop-profile` in project root, plus `profiles/<name>.md` per domain) that swaps in domain-specific gate and probe sets at invocation time. Deferred until adoption proves the demand. If you'd use this, open an issue against the mirror repo — it's the signal the design needs.
 
 ## Not built-in to Claude Code
 
