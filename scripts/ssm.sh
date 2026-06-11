@@ -100,7 +100,7 @@ run_ssm_flow() {
     if [ "$ENV_INPUT" == "master" ]; then
       MASTER_MODE=true
       ENVS=("dev" "prod")
-      CLIENTS=("ehs" "try" "medcare" "laasp" "vc")
+      CLIENTS=("ehs" "try" "medcare" "laasp" "vc" "fra" "tern")
       echo ""
       break
     fi
@@ -123,7 +123,7 @@ run_ssm_flow() {
       echo -e "\033[1;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
       echo -e "\033[1;33mSTEP 2: Client\033[0m"
       echo -e "\033[1;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-      echo -e "  \033[0;32m• ehs\033[0m  \033[0;32m• try\033[0m  \033[0;32m• medcare\033[0m  \033[0;32m• laasp\033[0m  \033[0;32m• vc\033[0m  \033[0;33mExamples:\033[0m \033[0;37mehs\033[0m | \033[0;37mehs,try\033[0m | \033[0;37mehs,try,medcare,laasp,vc\033[0m"
+      echo -e "  \033[0;32m• ehs\033[0m  \033[0;32m• try\033[0m  \033[0;32m• medcare\033[0m  \033[0;32m• laasp\033[0m  \033[0;32m• vc\033[0m  \033[0;32m• fra\033[0m  \033[0;32m• tern\033[0m  \033[0;33mExamples:\033[0m \033[0;37mehs\033[0m | \033[0;37mehs,try\033[0m | \033[0;37mehs,try,medcare,laasp,vc,fra,tern\033[0m"
       echo ""
       read -p $'\033[1;32mEnter: \033[0m' CLIENT_INPUT
       
@@ -132,9 +132,9 @@ run_ssm_flow() {
         continue
       fi
       
-      CLIENTS_STR=$(validate_and_parse "$CLIENT_INPUT" "ehs" "try" "medcare" "laasp" "vc")
+      CLIENTS_STR=$(validate_and_parse "$CLIENT_INPUT" "ehs" "try" "medcare" "laasp" "vc" "fra" "tern")
       if [ $? -ne 0 ]; then
-        echo -e "\033[0;31mInvalid! Use: \033[0;33mehs\033[0m, \033[0;33mtry\033[0m, \033[0;33mmedcare\033[0m, \033[0;33mlaasp\033[0m, \033[0;33mvc\033[0m, or comma-separated like \033[0;33mehs,try\033[0m. \033[1;31mTry again BOSS.\033[0m"
+        echo -e "\033[0;31mInvalid! Use: \033[0;33mehs\033[0m, \033[0;33mtry\033[0m, \033[0;33mmedcare\033[0m, \033[0;33mlaasp\033[0m, \033[0;33mvc\033[0m, \033[0;33mfra\033[0m, \033[0;33mtern\033[0m, or comma-separated like \033[0;33mehs,try\033[0m. \033[1;31mTry again BOSS.\033[0m"
         continue
       fi
       
@@ -162,6 +162,8 @@ run_ssm_flow() {
         prod-laasp) SESSION_NAMES+=("prod-laasp") ;;
         dev-vc) SESSION_NAMES+=("dev-vc") ;;
         prod-vc) SESSION_NAMES+=("prod-vc") ;;
+        prod-fra) SESSION_NAMES+=("prod-fra") ;;
+        dev-tern) SESSION_NAMES+=("dev-tern") ;;
       esac
     done
   done
@@ -231,6 +233,14 @@ run_ssm_flow() {
         prod-vc)
           start_ssm_session "prod-vc" "eu-central-1" "i-0cd37d214aab51e6c" \
             "walter-prod.chky8aigskoi.eu-central-1.rds.amazonaws.com" "5432" "5434"
+          ;;
+        prod-fra)
+          start_ssm_session "prod-fra" "eu-central-1" "i-0cd37d214aab51e6c" \
+            "production-fra-rds-1.chky8aigskoi.eu-central-1.rds.amazonaws.com" "7820" "7820"
+          ;;
+        dev-tern)
+          start_ssm_session "dev-tern" "eu-west-1" "i-08defcb8a91bfd739" \
+            "development-nonentrpr-rds.cdwtre6gztbt.eu-west-1.rds.amazonaws.com" "8376" "8376"
           ;;
       esac
     done
