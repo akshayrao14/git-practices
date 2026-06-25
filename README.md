@@ -8,7 +8,7 @@ A personal grab-bag of git workflow tooling, shell config, Claude Code skills, a
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | [`scripts/`](scripts/)        | Git workflow scripts (merge into ephemeral branches, reset branches, send notifications, AWS SSM helpers).  |
 | [`dotfiles/`](dotfiles/)      | Shell config: `bashrc.overrides` (aliases, git/AWS shortcuts) and `repohue` (per-repo terminal colours). See [`dotfiles/README.md`](dotfiles/README.md). |
-| [`skills/`](skills/)          | Claude Code skills (`dependabot-triage`, `dependabot-triage-py`) — automated CVE triage workflows.          |
+| [`skills/`](skills/)          | Claude Code skills: `dependabot-triage` + `dependabot-triage-py` (automated CVE triage), `session-loop` (multi-day project pause/resume toolkit). Built from `SKILL.md.tmpl` templates via a `{{include}}` resolver, with reusable fragments under `skills/_shared/`. |
 | `.claude/` and `.agents/`     | Claude Code project configuration and agent definitions.                                                    |
 | `LLM Custom Instructions.md`  | Custom instructions / coding protocol used with LLMs (skeptical-sparring persona, phased workflow).         |
 | `idempotent_constraints.sql`  | Example pattern for idempotent Postgres `ADD CONSTRAINT` migrations.                                        |
@@ -46,11 +46,19 @@ Then use them directly: `merge_into.sh <target-branch>`, `new_pr.sh`, `ssm_login
 
 ### Claude Code skills
 
-Skills under `skills/` are designed to be installed into Claude Code via the `publish-skill.sh` script:
+Each skill lives under `skills/<name>/`. Skills with a `SKILL.md.tmpl` are compiled to `SKILL.md` by resolving `{{include ...}}` directives against shared fragments:
+
+```bash
+scripts/build-skill.sh skills/dependabot-triage    # one skill
+scripts/build-all-skills.sh                          # every templated skill
+```
+
+Publish a skill to its dedicated repo (and auto-build first):
 
 ```bash
 scripts/publish-skill.sh skills/dependabot-triage
 scripts/publish-skill.sh skills/dependabot-triage-py
+scripts/publish-skill.sh skills/session-loop
 ```
 
 ## License

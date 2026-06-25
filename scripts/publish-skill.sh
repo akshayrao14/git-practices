@@ -12,6 +12,8 @@ set -euo pipefail
 
 declare -A MIRROR_REMOTES=(
   [dependabot-triage]="https://github.com/akshayrao14/dependabot-triage.git"
+  [dependabot-triage-py]="https://github.com/akshayrao14/dependabot-triage-py.git"
+  [session-loop]="https://github.com/akshayrao14/session-loop.git"
 )
 
 SKILL="${1:-}"
@@ -20,6 +22,11 @@ TAG="${2:-}"
 if [[ -z "$SKILL" ]]; then
   echo "Usage: $0 <skill-name> [tag]"
   echo "Known skills: ${!MIRROR_REMOTES[*]}"
+  exit 1
+fi
+
+if [[ "$SKILL" == "_shared" || "$SKILL" == _* || "$SKILL" == .* ]]; then
+  echo "Refusing to publish reserved directory: $SKILL"
   exit 1
 fi
 
@@ -34,6 +41,19 @@ PREFIX="skills/$SKILL"
 if [[ ! -d "$PREFIX" ]]; then
   echo "Skill folder not found: $PREFIX"
   exit 1
+fi
+
+if [[ -f "$PREFIX/SKILL.md.tmpl" ]]; then
+  echo ">>> Building $PREFIX/SKILL.md from template"
+  bash "$(dirname "$0")/build-skill.sh" "$SKILL"
+
+  if ! git diff --quiet -- "$PREFIX/SKILL.md"; then
+    echo "ERROR: $PREFIX/SKILL.md is out of sync with $PREFIX/SKILL.md.tmpl."
+    echo "       Build produced a diff against the committed SKILL.md."
+    echo "       Commit the rebuilt SKILL.md, then re-run publish."
+    git diff --stat -- "$PREFIX/SKILL.md"
+    exit 1
+  fi
 fi
 
 REMOTE_NAME="mirror-$SKILL"
