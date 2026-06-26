@@ -10,7 +10,7 @@ spinner_sleep=0.1 # in seconds
 
 function start_spinner {
     set +m
-    echo -n "$1         "
+    echo -ne "$1"
     echo ""
     tput civis # cursor invisible
     
