@@ -164,6 +164,7 @@ run_ssm_flow() {
         prod-vc) SESSION_NAMES+=("prod-vc") ;;
         prod-fra) SESSION_NAMES+=("prod-fra") ;;
         dev-tern) SESSION_NAMES+=("dev-tern") ;;
+        prod-tern) SESSION_NAMES+=("prod-tern") ;;
       esac
     done
   done
@@ -219,7 +220,7 @@ run_ssm_flow() {
             "dev-medcare-rds-1.cvk8uawkw8t3.me-central-1.rds.amazonaws.com" "5432" "5430"
           ;;
         dev-laasp)
-          start_ssm_session "dev-laasp" "eu-west-1" "i-0fedbd9e980a095c2" \
+          start_ssm_session "dev-laasp" "eu-west-2" "i-0dff9bf5ad5b24286" \
             "development-liverpool-rds.cdwtre6gztbt.eu-west-1.rds.amazonaws.com" "5432" "5432"
           ;;
         prod-laasp)
@@ -241,6 +242,10 @@ run_ssm_flow() {
         dev-tern)
           start_ssm_session "dev-tern" "eu-west-1" "i-08defcb8a91bfd739" \
             "development-nonentrpr-rds.cdwtre6gztbt.eu-west-1.rds.amazonaws.com" "8376" "8376"
+          ;;
+        prod-tern)
+          start_ssm_session "prod-tern" "eu-west-1" "i-08defcb8a91bfd739" \
+            "production-nonentrpr-rds.cdwtre6gztbt.eu-west-1.rds.amazonaws.com" "8376" "8377"
           ;;
       esac
     done
