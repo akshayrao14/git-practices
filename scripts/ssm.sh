@@ -245,7 +245,7 @@ run_ssm_flow() {
           ;;
         prod-tern)
           start_ssm_session "prod-tern" "eu-west-1" "i-08defcb8a91bfd739" \
-            "production-nonentrpr-rds.cdwtre6gztbt.eu-west-1.rds.amazonaws.com" "8376" "8377"
+            "db.nonentrpr.production.private.tern-group.com" "8376" "8377"
           ;;
       esac
     done
