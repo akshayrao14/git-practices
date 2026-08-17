@@ -96,8 +96,10 @@ alias gmpr='echo -e "Running $(tput setaf 3)git merge pre-release" && RESET_FORM
 alias gmm='echo -e "Running $(tput setaf 3)git merge main" && RESET_FORMATTING && git merge main'
 
 alias gdel='echo -e "Running $(tput setaf 3)git branch -D <branch>" && RESET_FORMATTING && git branch -D '
+alias gfo='echo -e "Running $(tput setaf 3)git fetch -all" && RESET_FORMATTING && git fetch --all'
 
 alias sso='echo -e "Running aws sso login --profile ${AWS_PROFILE}\n\nTo run sso with $(tput setaf 3)a different AWS profile$(tput sgr0), set $(tput setaf 3)AWS_PROFILE=\"<profile-name>\"$(tput sgr0) and run sso again\n" && RESET_FORMATTING && aws sso login --profile ${AWS_PROFILE}'
+alias ssop='echo -e "Running aws sso login --profile <input-profile>\n\nTo run sso with $(tput setaf 3)a different AWS profile$(tput sgr0), set $(tput setaf 3)AWS_PROFILE=\"<profile-name>\"$(tput sgr0) and run sso again\n" && RESET_FORMATTING && aws sso login --profile '
 alias ssoLogin=sso
 alias ssoLogout='echo -e "Running aws sso logout --profile ${AWS_PROFILE}" && aws sso logout --profile ${AWS_PROFILE}'
 
@@ -110,6 +112,8 @@ alias midemo='echo -e "Running $(tput setaf 3)merge_into.sh demo" && RESET_FORMA
 alias wd=windsurf
 
 alias xc="nemo . &"
+
+alias cl=claude
 
 alias sz='echo -e "Running $(tput setaf 3)du -sh .[!.]* * 2>/dev/null | sort -hr | less" && RESET_FORMATTING && du -sh .[!.]* * 2>/dev/null | sort -hr | less'
 
