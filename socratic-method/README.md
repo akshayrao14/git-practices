@@ -62,4 +62,5 @@ repo's `AGENTS.md` is written to work at either scope.
 
 Keep the mastery file local, or in a **private** repo if you need it synced
 across machines. It can reveal your own skill gaps and reference real code
-you've worked on — never make it public.
+you've worked on — never make it public. It's yours, full stop: it's not a
+performance-review artifact, and a manager shouldn't be asking to see it.
