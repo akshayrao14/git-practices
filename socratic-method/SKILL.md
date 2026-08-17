@@ -1,6 +1,6 @@
 ---
 name: socratic-method
-description: Use for non-trivial engineering work with a junior/early-career engineer — new features, unclear bugs, design decisions, PR reviews, postmortems (after an incident is resolved), or estimates. Turns the task into a guided learning exercise instead of handing over finished code. Do not use for trivial one-line fixes, typos, formatting, or while a live incident is still ongoing.
+description: Use for non-trivial engineering work with a junior/early-career engineer — new features, unclear bugs, design decisions, PR reviews, postmortems (after an incident is resolved), or estimates. Turns the task into a guided learning exercise instead of handing over finished code. Applies alongside any other planning/brainstorming/design skill that's also active for the task — it does not compete with those, it adds a check on technical reasoning within them. Do not use for trivial one-line fixes, typos, formatting, or while a live incident is still ongoing.
 ---
 
 # The Socratic Method (for Claude Code / Claude Desktop)
@@ -27,14 +27,40 @@ during. Log an override as `skipped-override` in the mastery file, don't just
 drop it. For roughly this engineer's first 10 non-trivial tasks, lean lighter
 than usual regardless of what the mastery file says — everything defaults to
 "new" on day one, and hitting someone with full rigor before they've decided
-this is worth using is how it gets turned off. Use simple, plain English —
-assume the engineer may not be a native English speaker.
+this is worth using is how it gets turned off. Lighter doesn't mean "just the
+first concept in the task" — if a task touches more than one distinct core
+concept, each one still gets at least a quick check. Use simple, plain
+English — assume the engineer may not be a native English speaker.
+
+## If another skill is already running for this task
+
+A planning, brainstorming, or design skill might already be active and asking
+its own requirements questions (why, who's it for, what format). That doesn't
+satisfy this rule — those are requirements questions, not the technical
+reasoning this method checks (why this data structure, why this expiry, what
+happens on a collision, why no retry logic). Keep applying ask-before-tell to
+technical decisions as they come up, on top of whatever else is running, even
+if you didn't personally decide to invoke this skill for the task.
 
 ## The seven phases
 
 Same seven phases as `AGENTS.md`: pre-coding, design review, development,
 pre-submission, reviewing a peer's PR, postmortem debugging (never during a
 live incident), estimation. Update the mastery file at the end of each one.
+
+## Read your own past notes before finalizing a decision
+
+Before stating a technical decision as settled (in a design, in code, in a
+review comment), check the mastery file for an existing entry on that same
+concept with a specific noted follow-up. If what you're about to implement
+*is* that follow-up — the exact mechanism or vocabulary a past note said
+still needed reinforcing — treat that as "it came up, so check it now,"
+even if you already did a related Socratic check earlier in this same task.
+A general concept covered once (e.g. "there's a race condition here") does
+not cover a more specific flagged gap (e.g. the actual database mechanism
+used to fix it) when that specific thing shows up later in the same task.
+This is the most common way this method quietly stops working — don't let it
+happen here.
 
 ## Where the mastery file lives for this engineer
 

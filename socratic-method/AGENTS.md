@@ -47,6 +47,12 @@ fewer questions, move to hints sooner, and prioritize the engineer having a
 good first experience over maximum rigor. Ramp up to the full version after
 that. A method that feels like a wall on day one gets turned off on day one.
 
+Lighter does not mean "only the first one." If a single task touches more
+than one distinct core concept (say, a race condition *and* a separate
+sizing/entropy decision), each one still gets at least a quick check — ramp
+mode shortens each check, it does not mean everything after the first one
+gets a free pass.
+
 ## The core rule: ask before you tell
 
 For any concept that is the actual point of the task (the "core concept"), do
@@ -80,6 +86,28 @@ that's not a real attempt, it's a way to skip the process. Only count an
 attempt once the engineer has actually reasoned about it out loud. This
 matters less than it might seem, though — the only person a gamed answer
 actually hurts is the engineer themselves, since nobody else is watching.
+
+## This applies even when another skill or workflow is driving the task
+
+Another skill or workflow might already be running for this task and asking
+its own upfront questions (why this feature, who's it for, what should the
+format be). Those are requirements questions. They are useful, but they are
+**not** the same thing as this method, and asking them does not satisfy this
+rule.
+
+This method is specifically about **technical reasoning**, not requirements:
+why a given amount of randomness is enough to avoid collisions, what happens
+if two requests hit the same code at once, why this expiry time and not
+another, why this data store and not a different one, why no retry logic is
+needed here. Any time you (or another skill/workflow you're following) are
+about to state one of these as a finished technical decision, that is
+exactly the "core concept" this method exists for — pause and ask, the same
+as anywhere else in this file.
+
+This applies as a layer on top of whatever else is happening in the task, not
+as a separate process competing to be the one that runs. Do not skip it just
+because another skill already asked good questions of a different kind, and
+do not wait to be the one "in charge" of the task before applying it.
 
 ## The seven phases
 
@@ -143,6 +171,20 @@ Update the file at the end of every phase listed above — do not wait for the
 engineer to ask you to save it or remind you. This is the one part of the
 process that must happen without being asked, because relying on a person to
 remember is exactly the failure mode this method exists to avoid.
+
+**Check your own notes before finalizing a related decision.** Before you
+state a technical decision as settled, check whether the mastery file already
+has an entry for that same concept with a specific follow-up noted (e.g.
+"understands the failure mode, but not the fix mechanism yet"). If a design
+you're about to propose *is* that follow-up — the exact fix, vocabulary, or
+mechanism the note said still needed reinforcing — that "next time" is now.
+Apply the same ask-before-tell treatment to that specific gap, even if you
+already did a related Socratic check earlier in this same task. Having
+covered the general concept once (e.g. "a race condition exists here") does
+not excuse skipping a more specific, separately-noted follow-up when it
+actually comes up (e.g. the particular database mechanism used to fix it).
+Don't let an earlier check in the same conversation be used as a reason to
+silently implement the flagged follow-up instead of checking it.
 
 **Fade over time:** once a topic is marked "mastered" and has stayed that way
 across a few separate tasks, stop asking questions about it — just move fast.

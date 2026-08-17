@@ -19,22 +19,61 @@ see [the gist](#) (link here once published).
 **Claude Code (terminal, or the "Code" tab in the Claude Desktop app — they
 share the same CLAUDE.md/Skills mechanism; the Desktop app's separate Chat
 and Cowork tabs do not, so this setup doesn't apply there):**
-1. Clone this repo somewhere on your machine, e.g. `~/git-practices`.
+1. Clone this repo somewhere on your machine, e.g. `~/git-practices`. Note
+   the **absolute path** of where it actually lands — you'll need the real
+   path in the next two steps, not just the example below.
 2. Symlink the whole `socratic-method` folder (not just `SKILL.md` on its
-   own) into `~/.claude/skills/socratic-method`, so `AGENTS.md` is there too:
+   own) into `~/.claude/skills/socratic-method`, so `AGENTS.md` is there too.
+   Use the absolute path on the source side — a relative one can silently
+   resolve to the wrong place (e.g. to itself) depending on which directory
+   you ran the command from:
    ```bash
-   ln -s ~/git-practices/socratic-method ~/.claude/skills/socratic-method
+   ln -s /absolute/path/to/git-practices/socratic-method ~/.claude/skills/socratic-method
    ```
-3. Add this to your personal `~/.claude/CLAUDE.md`:
+3. Add this to your personal `~/.claude/CLAUDE.md`, again with the real
+   absolute path, not the placeholder shown here:
    ```markdown
-   @~/git-practices/socratic-method/AGENTS.md
+   @/absolute/path/to/git-practices/socratic-method/AGENTS.md
    ```
 4. Copy `mastery-template.md` to `~/.junior-growth/mastery.md` and delete the
    example entry.
-5. **Check it worked:** start a fresh session and ask a non-trivial question
-   (e.g. "add a feature that does X"). If the agent doesn't ask you anything
-   back before writing code, the import didn't take — re-check step 3 and
-   run `/context` in Claude Code to see what actually loaded.
+
+**Verify it's actually wired up — don't skip this, each step below only
+means something if the one before it passed:**
+
+1. `ls -la ~/.claude/skills/socratic-method/` (note the trailing slash — it
+   forces `ls` to follow the symlink and list what's inside). You should see
+   `AGENTS.md`, `SKILL.md`, `mastery-template.md`, `README.md`. If you get
+   "No such file or directory" or "too many levels of symbolic links," the
+   symlink itself is broken — redo step 2 with an absolute path.
+2. Start a **fresh** Claude Code session and run `/context`. Confirm your
+   `socratic-method/AGENTS.md` file shows under **Memory files** with a
+   non-trivial token count (a few thousand, not zero). If it's missing, the
+   `@` import in step 3 isn't resolving — check the path is correct and
+   absolute.
+3. In the same session, run `/skills` and confirm `socratic-method` appears
+   in the list. If `AGENTS.md` loaded (step 2 passed) but the skill isn't
+   listed here, something's wrong with step 2 specifically, not step 3.
+4. Now the actual behavioral test — and be specific, not generic. Don't just
+   ask "add a feature that does X" and check whether it asks *anything*
+   back; a vague prompt can trigger a *different* skill (a planning or
+   brainstorming skill, if you have one installed) that asks its own
+   requirements questions and looks similar at a glance, without ever
+   engaging this method's actual behavior. Instead, ask for something with a
+   real technical decision buried in it — e.g. "add a feature that increments
+   a counter every time X happens," which has a genuine race-condition
+   question hiding in it. You're looking for the agent to pause specifically
+   on *that* technical reasoning (not just an opening "why do you need this"
+   question) and to hold off on giving you the answer once it does.
+5. If you have another planning/design/brainstorming skill installed, this
+   matters even more: confirm the Socratic check happens *alongside* that
+   skill's own questions, not instead of them, and specifically on a
+   technical decision, not just the requirements-gathering part it was
+   already going to do anyway.
+6. Finish the task, and check `~/.junior-growth/mastery.md` afterward — you
+   should see a new entry for whatever concept came up. If everything else
+   above passed but this file never updates, the phase-end save isn't
+   happening reliably; worth flagging as a bug rather than assuming it's you.
 
 **Codex CLI:**
 1. Clone this repo, e.g. `~/git-practices`.
