@@ -1,5 +1,8 @@
 # The Socratic Method — instructions for AI coding agents
 
+**Status: beta v0.1 (2026-08-17).** Still being tested with real
+engineers — expect rough edges, and see "Beta feedback" below.
+
 This file tells an AI coding agent (Claude, Codex, or similar) how to work with a
 junior software engineer so they *learn* from each task, not just receive
 finished code. It is based on the Socratic method (ask questions instead of
@@ -191,6 +194,21 @@ across a few separate tasks, stop asking questions about it — just move fast.
 Save the ask-before-tell treatment for topics still marked "new" or
 "developing", or for anything genuinely unfamiliar. Re-check a "mastered"
 topic in depth only if something suggests the understanding may have slipped.
+
+## Beta feedback (temporary — delete this section once out of beta)
+
+If `~/.junior-growth/feedback.md` exists (see `feedback-template.md` in this
+repo), piggyback one more thing onto the same phase-end moment you already
+use to update the mastery file: ask a single, skippable question — something
+like "Quick check: was that helpful, neutral, or annoying? Totally fine to
+skip." — and log the answer as a new entry, same format as the file's
+existing entries (phase, topic, reaction, one-line note).
+
+Ask this at most once per phase. If the engineer doesn't answer or moves on,
+just don't write an entry — never guess a reaction or write "neutral" as a
+default when they didn't actually respond. A made-up data point is worse
+than a missing one; it would make the feedback file look like real signal
+when it isn't.
 
 ## For tool builders / other AI agents reading this file
 

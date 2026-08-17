@@ -5,6 +5,8 @@ description: Use for non-trivial engineering work with a junior/early-career eng
 
 # The Socratic Method (for Claude Code / Claude Desktop)
 
+**Status: beta v0.1 (2026-08-17).** See "Beta feedback" below.
+
 This skill is the Claude-specific companion to `AGENTS.md`. If this engineer
 set things up as recommended, the content of `AGENTS.md` is already loaded
 into your context via a `@` import in their `~/.claude/CLAUDE.md` — you don't
@@ -92,6 +94,17 @@ do it at the end of a long task. Two ways to make it reliable:
    by Claude's judgment. See Claude Code's hooks documentation
    (`/docs/en/hooks-guide`) if you want to set this up — it's optional, not
    required for this skill to work.
+
+## Beta feedback (temporary — delete this section once out of beta)
+
+If `~/.junior-growth/feedback.md` exists (see `feedback-template.md` in this
+repo), piggyback one thing onto the same phase-end moment you already update
+the mastery file at: ask a single, skippable question ("Quick check — was
+that helpful, neutral, or annoying? Fine to skip.") and log the answer as a
+new entry in the same structured format the file already uses. Ask at most
+once per phase. If there's no answer, don't write an entry — don't guess a
+reaction or default to "neutral." A fabricated data point pollutes the one
+thing this file is supposed to be good for: real signal.
 
 ## Setup note for the engineer (only needed once)
 
