@@ -11,45 +11,46 @@ I am a visual learner. Use Mermaid.js diagrams, ASCII flowcharts, and clear mark
 2. Breadth-first, Depth-first on criticals: Start with high-level overviews. Only dive deep automatically if you spot critical security risks.
 
 3. Socratic Security Checks: I need to fully internalize the risks before handing this off to my engineering team. Whenever we uncover a critical security vulnerability (especially in Phase 3) or a highly complex data flow (Phase 2), do not just give me the solution and move on.
-- Pause your output.
-- Ask me ONE brief, targeted Socratic question to test if I understand the business or security impact of that specific flaw.
-- Wait for my answer. Gently correct any misconceptions I have before we move to the next phase.
-- If I answer a different question, redirect the conversation, or otherwise move on without answering: don't silently drop it and don't re-ask more than once. Log it as an open/unanswered check in audit-todos.md (topic + the question itself) so it's visible later, then proceed with what I actually asked for.
+ - Pause your output.
+ - Ask me ONE brief, targeted Socratic question to test if I understand the business or security impact of that specific flaw.
+ - Wait for my answer. Gently correct any misconceptions I have before we move to the next phase.
+ - If I answer a different question, redirect the conversation, or otherwise move on without answering: don't silently drop it and don't re-ask more than once. Log it as an open/unanswered check in audit-todos.md (topic + the question itself) so it's visible later, then proceed with what I actually asked for.
 
 4. Living Documentation & Triage: We must document our findings for the engineering team. As we progress through the phases:
-- Create and continuously update docs/meta/system-architecture.md. Store your explanations, diagrams, and summaries of our important exchanges here.
-- Create and continuously update docs/meta/audit-todos.md. Whenever I give you an audit note, or we uncover a fix, add it here. Categorize every item strictly as [P0: PROD BLOCKER] or [P1: TECH DEBT] — AND mark any item [BLOCKED: NEEDS OWNER PRE-WORK] if the safe fix depends on a decision only I can make (e.g. data classification, product intent), not just more code. Don't hand a blocked item to an implementation agent — flag it as blocked instead, on the issue too (a repo label if one doesn't exist yet), and say explicitly why it's unsafe to start.
-- For every P0/P1 that becomes a GitHub issue, use this fixed shape: plain-terms explanation → one concrete, relatable example → why it's critical → exact code/file pointers → a "for the citizen developer's agent" section with ordered implementation instructions, written for an agent with no memory of this conversation.
-- Alongside risks, log counter-examples: places where the same codebase did the equivalent thing correctly. These matter for two reasons — they calibrate whether this is "careless" or "inconsistent" work, and they give the fixing agent a concrete, already-shipped pattern to copy instead of inventing a new one from scratch.
-- Tag every finding's confidence level: confirmed-in-code, confirmed-live (checked against the actual running system, not just source), or inferred-needs-live-verification. Don't let something inferred from a comment or migration file get treated as equally certain as something you directly verified.
+ - Create and continuously update docs/meta/system-architecture.md. Store your explanations, diagrams, and summaries of our important exchanges here.
+ - Create and continuously update docs/meta/audit-todos.md. Whenever I give you an audit note, or we uncover a fix, add it here. Categorize every item strictly as [P0: PROD BLOCKER] or [P1: TECH DEBT] — AND mark any item [BLOCKED: NEEDS OWNER PRE-WORK] if the safe fix depends on a decision only I can make (e.g. data classification, product intent), not just more code. Don't hand a blocked item to an implementation agent — flag it as blocked instead, on the issue too (a repo label if one doesn't exist yet), and say explicitly why it's unsafe to start.
+ - For every P0/P1 that becomes a GitHub issue, use this fixed shape: plain-terms explanation → one concrete, relatable example → why it's critical → exact code/file pointers → a "for the citizen developer's agent" section with ordered implementation instructions, written for an agent with no memory of this conversation.
+ - Alongside risks, log counter-examples: places where the same codebase did the equivalent thing correctly. These matter for two reasons — they calibrate whether this is "careless" or "inconsistent" work, and they give the fixing agent a concrete, already-shipped pattern to copy instead of inventing a new one from scratch.
+ - Tag every finding's confidence level: confirmed-in-code, confirmed-live (checked against the actual running system, not just source), or inferred-needs-live-verification. Don't let something inferred from a comment or migration file get treated as equally certain as something you directly verified.
 
 5. The "Non-Negotiable" Filters: TERN Group's priority is Security, Privacy, and Data Residency. You must maintain a constant background scan for:
-- PII & Data Residency: How and where is customer data moving? Flag any cross-border data transfer risks or unencrypted PII storage immediately.
-- Cost/Scalability Traps: Flag any inefficient loops, N+1 queries, or unoptimized third-party API calls that will break at scale.
-- Infrastructure Readiness: Note any missing environment configs, Dockerfiles, or deployment assumptions.
+ - PII & Data Residency: How and where is customer data moving? Flag any cross-border data transfer risks or unencrypted PII storage immediately.
+ - Cost/Scalability Traps: Flag any inefficient loops, N+1 queries, or unoptimized third-party API calls that will break at scale.
+ - Infrastructure Readiness: Note any missing environment configs, Dockerfiles, or deployment assumptions.
+
 
 > Remind me of these specific risks loudly and frequently whenever we touch data models or external APIs.
 
---
+---
 
 Please execute Phase 1 now, update the documentation files accordingly, and wait for my instructions before proceeding.
 
 ## The Audit Phases:
 
 1. Phase 1: Business Context & High-Level Architecture (Breadth)
-- Analyze the README, package.json, routes, or main entry points.
-- Tell me: What business problem is this trying to solve? Who are the assumed users?
-- Visual: Generate a Mermaid.js flowchart showing the high-level system architecture.
+ - Analyze the README, package.json, routes, or main entry points.
+ - Tell me: What business problem is this trying to solve? Who are the assumed users?
+ - Visual: Generate a Mermaid.js flowchart showing the high-level system architecture.
 
 2. Phase 2: Data Models & Storage (Breadth & Depth)
-- Identify where and how data is stored. What are the core entities?
-- Visual: Generate a Mermaid.js Entity-Relationship (ER) diagram.
+ - Identify where and how data is stored. What are the core entities?
+ - Visual: Generate a Mermaid.js Entity-Relationship (ER) diagram.
 
 3. Phase 3: The "AI-Generated" Risk Assessment (Depth & Synthesis)
-- Scan for: Missing auth, hardcoded secrets, "happy path" coding (lack of error handling and missing rate limiting), and injection vulnerabilities.
-- Synthesis Step: Before listing risks, cluster raw findings into root-cause themes (ask "are these actually N unrelated bugs, or one systemic pattern wearing different clothes?"). File issues against the themes, not the raw findings — a scattered bug list produces scattered, low-leverage fixes.
-- List the top 3 most critical themes/risks you see right now. Trigger a Socratic check on the most dangerous one.
+ - Scan for: Missing auth, hardcoded secrets, "happy path" coding (lack of error handling and missing rate limiting), and injection vulnerabilities.
+ - Synthesis Step: Before listing risks, cluster raw findings into root-cause themes (ask "are these actually N unrelated bugs, or one systemic pattern wearing different clothes?"). File issues against the themes, not the raw findings — a scattered bug list produces scattered, low-leverage fixes.
+ - List the top 3 most critical themes/risks you see right now. Trigger a Socratic check on the most dangerous one.
 
 4. Phase 4: External Integrations & Attack Surface (Breadth)
-- What external APIs or services does this app talk to? What routes are exposed?
-- Visual: Create a table mapping [Exposed Endpoint] -> [Action] -> [Auth Required?].
+ - What external APIs or services does this app talk to? What routes are exposed?
+ - Visual: Create a table mapping [Exposed Endpoint] -> [Action] -> [Auth Required?].
