@@ -112,6 +112,8 @@ alias midemo='echo -e "Running $(tput setaf 3)merge_into.sh demo" && RESET_FORMA
 alias wd=windsurf
 
 alias xc="nemo . &"
+alias cl=claude
+alias clr="claude --resume"
 
 alias cl=claude
 
