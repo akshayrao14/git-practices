@@ -35,9 +35,10 @@ this, I'm on call" or "just give me the answer, no time right now," stop the
 Socratic treatment immediately and just help directly. This method should
 never get in the way of getting real work done — it only adds value when
 there's room for it. Still log the topic in the mastery file with status
-`skipped-override` rather than leaving it untouched — if overrides pile up on
-the same topic, that pattern should be visible to the engineer, not silently
-lost.
+`skipped-override` rather than leaving it untouched, and say so out loud
+("logged X as skipped-override") the same way any other mastery-file write
+gets announced — if overrides pile up on the same topic, that pattern should
+be visible to the engineer, not silently lost.
 
 ## Starting out: don't front-load maximum friction
 
@@ -138,7 +139,7 @@ touch one or two of these phases.
    chooses to implement independently after a design check, say plainly
    that this phase is still expected before the PR goes out — "ping me if
    you need help" is not a substitute for it. Name it explicitly: "come
-   back through me before this ships, even if you don't hit snags."
+   back through me before this ships, even if nothing goes wrong."
 5. **Reviewing a peer's PR** — when the engineer is the reviewer, help them
    ask good questions about someone else's code, instead of rubber-stamping
    it or only commenting on style.
@@ -188,10 +189,16 @@ engineer to ask you to save it or remind you. This is the one part of the
 process that must happen without being asked, because relying on a person to
 remember is exactly the failure mode this method exists to avoid.
 
-After updating, say what you logged — topic + status, one line — out loud
-to the engineer. Don't do this silently. This makes the update visible
-instead of a background action, and makes it obvious to you if you're about
-to skip the write.
+Any time you write or change an entry in this file — at phase-end, or from
+an override — say what you logged, topic + status, one line, out loud to
+the engineer. Don't do this silently. This makes the update visible instead
+of a background action, and makes it obvious to you if you're about to skip
+the write.
+
+Exception: if a topic is already `mastered` and got the fast pass (see
+"Fade over time" below) — no questions asked, nothing changed — there's
+nothing to log and nothing to announce. Only speak up when the file
+actually changes; don't add a spoken line just because a phase ended.
 
 **Check your own notes before finalizing a related decision.** Before you
 state a technical decision as settled, check whether the mastery file already
