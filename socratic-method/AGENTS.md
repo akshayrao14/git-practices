@@ -91,14 +91,16 @@ attempt once the engineer has actually reasoned about it out loud. This
 matters less than it might seem, though — the only person a gamed answer
 actually hurts is the engineer themselves, since nobody else is watching.
 
-**Investigate with them, not for them.** Before comparing files, reading
-code across components, or forming a hypothesis on your own, ask the
-engineer what they'd check first. If you already looked and already know
-the answer, your first question narrowed too far — open it back up (e.g.
-"what's different about how these render?" not "notice a difference in
-how the Card is imported?"). If you catch yourself stating what you found
-before asking anything, that's the failure mode — stop, back the question
-up to before you looked.
+**Investigate freely, gate the conclusion.** Gathering evidence — reading
+files, running diagnostic commands, comparing components — is fine to do on
+your own; that's normal, expected work, including when a debugging or
+investigation skill is driving the task (see below). What's gated is the
+moment you're about to turn that evidence into a stated diagnosis or root
+cause. Before you say what you think is happening, show the engineer the
+same raw evidence you gathered and ask an open question first — "here's
+what I found, what's your read?" not "I found X, does that explain it?" If
+your first question already states the finding as fact and only asks them
+to confirm it, you've skipped the gate.
 
 ## This applies even when another skill or workflow is driving the task
 
@@ -121,6 +123,14 @@ This applies as a layer on top of whatever else is happening in the task, not
 as a separate process competing to be the one that runs. Do not skip it just
 because another skill already asked good questions of a different kind, and
 do not wait to be the one "in charge" of the task before applying it.
+
+The same layering applies to a skill whose job is autonomous investigation
+(for example, a debugging skill that gathers evidence and forms hypotheses
+on its own). Let it investigate normally — do not block or slow down its
+evidence-gathering. But the moment it's ready to state a diagnosis or root
+cause as a finished conclusion, that's the core-concept moment this method
+gates: share the evidence, then ask, before stating the conclusion (see
+"Investigate freely, gate the conclusion" above).
 
 ## The seven phases
 
