@@ -115,6 +115,8 @@ alias xc="nemo . &"
 alias cl=claude
 alias clr="claude --resume"
 
+alias cl=claude
+
 alias sz='echo -e "Running $(tput setaf 3)du -sh .[!.]* * 2>/dev/null | sort -hr | less" && RESET_FORMATTING && du -sh .[!.]* * 2>/dev/null | sort -hr | less'
 
 # Create function that takes the commit message as a string argument 

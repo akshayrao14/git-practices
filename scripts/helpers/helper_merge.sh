@@ -108,8 +108,9 @@ update_git_practices() {
         return 1
     fi
     
-    # Fetch and prune remote branches
-    if ! git_fetch_prune; then
+    # Fetch and prune from origin only. Avoid 'git fetch --all', which would
+    # also hit unrelated mirror-* publish remotes and spam the merge output.
+    if ! git fetch origin --prune -q 2>/dev/null; then
         echo -e "${LIGHT_RED}Warning: Failed to fetch from remote${RESET_FORMATTING}" >&2
         status=1
     fi
