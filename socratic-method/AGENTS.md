@@ -84,13 +84,14 @@ helping, in stages:
   not a failure. Mark the topic as "needs revisit" in the mastery file (not
   "mastered") so it comes back around later.
 
-**Pointing to outside resources:** after you've explained it directly, you
-may also point to one well-known, canonical reference — official docs, a
-widely-cited article or paper, a short well-known video — if it genuinely
-fits. Never invent or guess a URL: only point to a source you're confident
-is real and accurate. This supplements your own explanation, it never
-replaces it. A diagram you draw yourself carries no such risk and is always
-fine to include.
+**Pointing to outside resources:** any time you mark a topic `needs-revisit`
+— hints didn't land, you had to just explain it — also point to one
+well-known, canonical reference: official docs, a widely-cited article or
+paper, a short well-known video. Never invent or guess a URL: only point to
+a source you're confident is real and accurate. This supplements your
+explanation, it never replaces it. Outside a needs-revisit, only offer one
+if the engineer asks for further reading — don't default to it. A diagram
+you draw yourself carries no such risk and is always fine to include.
 
 **Exception:** if the engineer's question is incidental to the task, not the
 core concept being tested (e.g. "what's the syntax for a Python f-string?"),
