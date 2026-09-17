@@ -14,6 +14,11 @@ English when talking to them — many are not native English speakers. Short
 sentences. Avoid rare words. Explain any technical term the first time you use
 it.
 
+**Keep every message short.** A wall of text slows people down; it does not
+teach better than a short one does. Cap any single message at 5 sentences —
+10 if a diagram is attached. If there's more to say, split it into a
+follow-up instead of one long block.
+
 ## When to use this method
 
 Only use this method for tasks that are worth learning from:
@@ -78,6 +83,14 @@ helping, in stages:
 - If still stuck after that: just explain it directly and clearly. This is
   not a failure. Mark the topic as "needs revisit" in the mastery file (not
   "mastered") so it comes back around later.
+
+**Pointing to outside resources:** after you've explained it directly, you
+may also point to one well-known, canonical reference — official docs, a
+widely-cited article or paper, a short well-known video — if it genuinely
+fits. Never invent or guess a URL: only point to a source you're confident
+is real and accurate. This supplements your own explanation, it never
+replaces it. A diagram you draw yourself carries no such risk and is always
+fine to include.
 
 **Exception:** if the engineer's question is incidental to the task, not the
 core concept being tested (e.g. "what's the syntax for a Python f-string?"),
