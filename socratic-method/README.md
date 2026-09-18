@@ -3,37 +3,29 @@
 Files that make an AI coding agent behave as a Socratic tutor for a junior
 engineer, instead of just generating code.
 
-## Beta status — please read this before you start
+## Status
 
-This is a **beta**, not a finished tool. It's being tried out with a small
-group before it goes any further. A few things to know going in:
+This is v1. A few things worth knowing before you rely on it:
 
-- **What's genuinely untested:** everything has really only been exercised
-  on new-feature/design-review type work, in one codebase. Four things have
-  never been tried in practice: **reviewing a peer's PR, postmortem
-  debugging, estimation**, and whether it correctly does **not** engage
-  during a live incident (only in the postmortem after). If your work
-  touches any of these, you're the first real data point — that's genuinely
-  useful, not a burden.
-- **Some numbers in here are guesses,** not validated thresholds — "2
-  attempts before a hint," "10 tasks before ramp mode ends." If those feel
-  wrong in practice, that's exactly the kind of thing to flag.
-- **It might not always trigger, or might miss something it should've
-  caught.** If you have another planning/brainstorming skill installed, the
-  interaction between the two hasn't been heavily tested either.
+- **Some numbers in here are still estimates,** not validated thresholds —
+  "2 attempts before a hint," "10 tasks before ramp mode ends." If those feel
+  wrong in practice, that's worth flagging.
+- **Reviewing a peer's PR, postmortem debugging, and estimation** have seen
+  less real-world use than pre-coding and design review so far. If your work
+  touches any of these, you're an early data point for that phase.
+- **If you have another planning/brainstorming skill installed,** it's
+  designed to layer on top of that skill's questions, not replace them —
+  worth confirming that's actually what happens in your setup.
 - **This is opt-in, not an expectation.** Using it, not using it, or turning
   it off entirely if it's not working for you — all of that is fine. It's
   not something anyone's tracking as a performance signal, and it shouldn't
   be treated as one by anyone. See "How to fully turn this off" below if you
   want out at any point, no explanation needed.
 
-**What feedback is actually useful:** whether any of the four untested
-phases above came up and how it went; any moment it felt like busywork
-rather than genuinely useful (be blunt — that's the exact failure mode being
-watched for); any setup step that didn't work as written; and anything in
-`feedback-template.md` (see below) that the automatic prompts don't already
-capture. Send it to **[Akshay — add your preferred channel here: Slack DM,
-email, or just share your `feedback.md` directly]**.
+**Feedback is still wanted:** any moment it felt like busywork rather than
+genuinely useful (be blunt — that's the exact failure mode being watched
+for), or any setup step that didn't work as written. Send it to **[Akshay —
+add your preferred channel here: Slack DM or email]**.
 
 ## What's in this folder
 
@@ -44,9 +36,6 @@ email, or just share your `feedback.md` directly]**.
 - `mastery-template.md` — starter file for tracking what you've actually
   learned, so the agent asks fewer questions on topics you've already proven
   you understand, and keeps asking on the ones you haven't.
-- `feedback-template.md` — starter file for beta feedback. The agent logs a
-  quick, skippable reaction to it automatically after a Socratic exchange;
-  stays private the same way the mastery file does.
 
 ## Setup
 
@@ -71,9 +60,6 @@ and Cowork tabs do not, so this setup doesn't apply there):**
    ```
 4. Copy `mastery-template.md` to `~/.junior-growth/mastery.md` and delete the
    example entry.
-5. Copy `feedback-template.md` to `~/.junior-growth/feedback.md` (this is the
-   beta feedback log — see above). This step is optional but appreciated
-   while this is in beta.
 
 **Verify it's actually wired up — don't skip this, each step below only
 means something if the one before it passed:**
@@ -134,7 +120,7 @@ repo's `AGENTS.md` is written to work at either scope.
   the method partway through a long session, that's the likely reason —
   worth a quick re-check rather than assuming it's gone for good.
 
-## Getting updates during the beta
+## Getting updates
 
 Because the skill is symlinked (not copied) into `~/.claude/skills/`, you
 don't need to redo any setup step when `AGENTS.md` or `SKILL.md` change —
@@ -158,9 +144,8 @@ No explanation needed, and no penalty for doing this at any point:
 2. Remove the symlink: `rm ~/.claude/skills/socratic-method` (this only
    deletes the symlink itself, not your cloned repo — the `rm` is safe as
    long as you don't add a trailing slash).
-3. Your `~/.junior-growth/mastery.md` and `feedback.md` files are untouched
-   by this and stay on your machine either way — delete them yourself if you
-   want them gone too.
+3. Your `~/.junior-growth/mastery.md` is untouched by this and stays on your
+   machine either way — delete it yourself if you want it gone too.
 
 ## A note on the mastery file and privacy
 
