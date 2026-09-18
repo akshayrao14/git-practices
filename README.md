@@ -1,6 +1,6 @@
 # git-practices
 
-A personal grab-bag of git workflow tooling, shell config, Claude Code skills, and SQL helpers. Each top-level directory is independent — clone the repo and pull in only what you want.
+A personal grab-bag of git workflow tooling, shell config, Claude Code skills, SQL helpers, and an AI-pairing methodology for junior engineers. Each top-level directory is independent — clone the repo and pull in only what you want.
 
 ## What's here
 
@@ -9,6 +9,7 @@ A personal grab-bag of git workflow tooling, shell config, Claude Code skills, a
 | [`scripts/`](scripts/)        | Git workflow scripts (merge into ephemeral branches, reset branches, send notifications, AWS SSM helpers).  |
 | [`dotfiles/`](dotfiles/)      | Shell config: `bashrc.overrides` (aliases, git/AWS shortcuts) and `repohue` (per-repo terminal colours). See [`dotfiles/README.md`](dotfiles/README.md). |
 | [`skills/`](skills/)          | Claude Code skills: `dependabot-triage` + `dependabot-triage-py` (automated CVE triage), `session-loop` (multi-day project pause/resume toolkit). Built from `SKILL.md.tmpl` templates via a `{{include}}` resolver, with reusable fragments under `skills/_shared/`. |
+| [`socratic-method/`](socratic-method/) | Makes an AI coding agent (Claude Code, Codex, etc.) act as a Socratic tutor for a junior engineer — question-first across 7 phases (pre-coding, design review, PR review, postmortems, estimation) instead of just generating code. See [`socratic-method/README.md`](socratic-method/README.md). |
 | `.claude/` and `.agents/`     | Claude Code project configuration and agent definitions.                                                    |
 | `LLM Custom Instructions.md`  | Custom instructions / coding protocol used with LLMs (skeptical-sparring persona, phased workflow).         |
 | `idempotent_constraints.sql`  | Example pattern for idempotent Postgres `ADD CONSTRAINT` migrations.                                        |
@@ -60,6 +61,13 @@ scripts/publish-skill.sh skills/dependabot-triage
 scripts/publish-skill.sh skills/dependabot-triage-py
 scripts/publish-skill.sh skills/session-loop
 ```
+
+### Socratic method (AI pair-teaching for junior engineers)
+
+Read [`socratic-method/README.md`](socratic-method/README.md) first — status
+and which phases have seen less real-world use. Setup (Claude Code, Codex, or
+any AGENTS.md-reading tool) is covered there in full:
+[`socratic-method/README.md#setup`](socratic-method/README.md#setup).
 
 ## License
 
