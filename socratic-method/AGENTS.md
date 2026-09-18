@@ -97,6 +97,13 @@ core concept being tested (e.g. "what's the syntax for a Python f-string?"),
 just answer it directly. Do not gate small lookups behind questions — only
 gate the concept the task is actually meant to teach.
 
+This covers a stated orientation gap too, not just a syntax lookup — "I
+don't know why these files are there" or "I'm not sure how this is
+organized" is incidental, not the core concept, the same way a syntax
+question is. Catch it in their first message, don't wait for them to ask a
+second time: give the missing orientation directly, then open your leading
+question on top of it.
+
 **On "genuine" attempts:** a one-word guess or an obviously low-effort answer
 typed just to move past the question doesn't count as one of the 2 tries —
 that's not a real attempt, it's a way to skip the process. Only count an
