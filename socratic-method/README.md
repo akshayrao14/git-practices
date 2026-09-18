@@ -24,8 +24,7 @@ This is v1. A few things worth knowing before you rely on it:
 
 **Feedback is still wanted:** any moment it felt like busywork rather than
 genuinely useful (be blunt — that's the exact failure mode being watched
-for), or any setup step that didn't work as written. Send it to **[Akshay —
-add your preferred channel here: Slack DM or email]**.
+for), or any setup step that didn't work as written. Raise a github issue.
 
 ## What's in this folder
 
